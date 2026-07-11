@@ -350,9 +350,10 @@ container's published port (the same prediction as the earlier bare-metal
 test — <code>{"prediction":0,"label":"No disease","confidence":0.6390}</code> — confirming
 no drift between the dev environment and the containerized one), and
 <code>docker exec ... id</code> confirms the process runs as <code>appuser</code> (uid 1000), not
-root. Final image size: 219 MB (content) / 981 MB reported disk usage
-(shared base-image layers counted in full by <code>docker images</code> for a
-single-image view).</p>
+root. Final image size: 623 MB content (up from 219 MB before adding
+XGBoost — its native shared library is the single largest dependency in
+the image; still an acceptable tradeoff for a third model that meaningfully
+adds to the comparison in Section 5).</p>
 <h2 id="10-production-deployment-kubernetes-minikube">10. Production Deployment (Kubernetes / Minikube)</h2>
 <p><code>k8s/deployment.yaml</code> — 2 replicas, <code>imagePullPolicy: Never</code> (the image is
 loaded directly via <code>minikube image load</code>, no registry involved),

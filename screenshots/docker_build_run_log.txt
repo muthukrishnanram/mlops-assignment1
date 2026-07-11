@@ -1,10 +1,4 @@
-=== docker build -t heart-disease-api:latest . ===
-#15 CACHED
-
-#16 [builder 2/4] WORKDIR /build
-#16 CACHED
-
-#17 [stage-1 4/9] WORKDIR /app
+=== docker build -t heart-disease-api:latest . (with xgboost dependency added) ===
 #17 CACHED
 
 #18 [stage-1 9/9] RUN chown -R appuser:appuser /app
@@ -12,20 +6,21 @@
 
 #19 exporting to image
 #19 exporting layers done
-#19 exporting manifest sha256:8df55c037c762464462edbf8ccfd46f82b71f74705aadfa7de3c19cdb3092d13 done
-#19 exporting config sha256:76c501b747527218c745715adcc3cbefa5c6e85a79ca6d2eb76a1af477ee3ee3 done
-#19 exporting attestation manifest sha256:85c8cfea2bd35ab0d90eecc8e14f695e29be2e58137473a8da3fcdc732c642a2 0.0s done
-#19 exporting manifest list sha256:1e3610b05760bf9907819b7726a5c2b816581e01bceb081721dfaac2673fe2d3 done
+#19 exporting manifest sha256:adcf111f60359ef3047cae786dcd71f6d58bbb1db07d1abf299bee77068d6920 done
+#19 exporting config sha256:b6ebbec731f0242818057444f12d0d8800f582ce8a9e2649e722d12a9c184340 done
+#19 exporting attestation manifest sha256:16f7414a19e5b11a6cdcbb4e1f62f9f3d23d99aa5bdaf7129c1026d5a470bd82 0.0s done
+#19 exporting manifest list sha256:1ad7756b6d610ea6bb156070fa891754872235f97827020c2c148a609e568c3a
+#19 exporting manifest list sha256:1ad7756b6d610ea6bb156070fa891754872235f97827020c2c148a609e568c3a 0.0s done
 #19 naming to docker.io/library/heart-disease-api:latest done
 #19 unpacking to docker.io/library/heart-disease-api:latest done
 #19 DONE 0.1s
 
 === docker run -d --name heart-api-verify -p 8000:8000 heart-disease-api:latest ===
-ab6ff9b9132beb73c8da98cb931490efb57f0da63c2130f3f437dc13f31b8204
+7dd1d57f6c87f572cf0c6a46dcfc6ee13d454cf37096cdc80f42e1c0a0dca3e0
 
 === docker ps ===
 CONTAINER ID   IMAGE                      COMMAND                  CREATED         STATUS                            PORTS                                         NAMES
-ab6ff9b9132b   heart-disease-api:latest   "uvicorn api.main:ap…"   4 seconds ago   Up 4 seconds (health: starting)   0.0.0.0:8000->8000/tcp, [::]:8000->8000/tcp   heart-api-verify
+7dd1d57f6c87   heart-disease-api:latest   "uvicorn api.main:ap…"   6 seconds ago   Up 6 seconds (health: starting)   0.0.0.0:8000->8000/tcp, [::]:8000->8000/tcp   heart-api-verify
 
 === curl -sf http://localhost:8000/health ===
 {"status":"healthy","model_loaded":true}
@@ -34,11 +29,11 @@ ab6ff9b9132b   heart-disease-api:latest   "uvicorn api.main:ap…"   4 seconds a
 {"prediction":0,"label":"No disease","confidence":0.638963685409977}
 
 === docker inspect --format='{{.State.Health.Status}}' heart-api-verify ===
-starting
+healthy
 
 === docker exec heart-api-verify id (proves non-root) ===
 uid=1000(appuser) gid=1000(appuser) groups=1000(appuser)
 
 === docker images heart-disease-api:latest ===
 IMAGE                      ID             DISK USAGE   CONTENT SIZE   EXTRA
-heart-disease-api:latest   1e3610b05760        981MB          219MB   U    
+heart-disease-api:latest   1ad7756b6d61          2GB          623MB   U    
