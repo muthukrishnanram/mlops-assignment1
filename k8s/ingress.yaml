@@ -1,0 +1,24 @@
+# Alternative to the LoadBalancer Service in service.yaml — use this if you'd rather
+# not run `minikube tunnel` (which needs sudo to edit routes). Requires:
+#   minikube addons enable ingress
+# Then access via:
+#   curl --resolve heart-api.local:80:$(minikube ip) http://heart-api.local/health
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: heart-disease-api
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: heart-api.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: heart-disease-api
+                port:
+                  number: 80
