@@ -8,25 +8,27 @@ kubeconfig: Configured
 
 
 === kubectl get nodes ===
-NAME       STATUS   ROLES           AGE   VERSION
-minikube   Ready    control-plane   12m   v1.35.1
+NAME       STATUS   ROLES           AGE     VERSION
+minikube   Ready    control-plane   6h25m   v1.35.1
 
-=== kubectl get deployment heart-disease-api ===
-NAME                READY   UP-TO-DATE   AVAILABLE   AGE
-heart-disease-api   2/2     2            2           10m
+=== minikube image load heart-disease-api:latest (xgboost-updated image) ===
+(already loaded)
+
+=== kubectl rollout restart deployment/heart-disease-api ===
+deployment.apps/heart-disease-api restarted -> successfully rolled out
 
 === kubectl get pods -o wide ===
-NAME                                 READY   STATUS    RESTARTS   AGE   IP           NODE       NOMINATED NODE   READINESS GATES
-heart-disease-api-844d976854-dtj57   1/1     Running   0          10m   10.244.0.4   minikube   <none>           <none>
-heart-disease-api-844d976854-wxt7l   1/1     Running   0          10m   10.244.0.3   minikube   <none>           <none>
+NAME                                 READY   STATUS    RESTARTS   AGE     IP            NODE       NOMINATED NODE   READINESS GATES
+heart-disease-api-7c6d4ffbbf-d7hpw   1/1     Running   0          3m12s   10.244.0.12   minikube   <none>           <none>
+heart-disease-api-7c6d4ffbbf-vnqw8   1/1     Running   0          3m      10.244.0.13   minikube   <none>           <none>
 
 === kubectl get svc heart-disease-api ===
 NAME                TYPE           CLUSTER-IP      EXTERNAL-IP   PORT(S)        AGE
-heart-disease-api   LoadBalancer   10.107.81.240   <pending>     80:30995/TCP   10m
+heart-disease-api   LoadBalancer   10.107.81.240   <pending>     80:30995/TCP   6h23m
 
 === kubectl get ingress heart-disease-api ===
 NAME                CLASS   HOSTS             ADDRESS        PORTS   AGE
-heart-disease-api   nginx   heart-api.local   192.168.49.2   80      4m59s
+heart-disease-api   nginx   heart-api.local   192.168.49.2   80      6h18m
 
 === minikube ip ===
 192.168.49.2

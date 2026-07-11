@@ -386,6 +386,12 @@ prediction as the bare-metal and Docker checks, now served from inside a
 <code>minikube tunnel</code> remains documented in <code>k8s/README.md</code> as the
 <code>LoadBalancer</code>-native path for anyone running this outside a sandboxed
 session.</p>
+<p>Re-verified after adding XGBoost and rebuilding the image: <code>minikube image
+load</code> + <code>kubectl rollout restart deployment/heart-disease-api</code> rolled both
+replicas over to the new image with zero manual pod deletion, and the same
+<code>curl</code> checks against <code>/health</code> and <code>/predict</code> returned the identical
+prediction as before — expected, since Random Forest (the deployed model)
+didn't change; only the image's dependency set did.</p>
 <h2 id="11-monitoring-logging">11. Monitoring &amp; Logging</h2>
 <p>The API logs every request (method, path, status code, latency) via a
 FastAPI middleware, and every prediction (class + confidence — never the

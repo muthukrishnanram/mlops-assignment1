@@ -380,6 +380,13 @@ prediction as the bare-metal and Docker checks, now served from inside a
 `LoadBalancer`-native path for anyone running this outside a sandboxed
 session.
 
+Re-verified after adding XGBoost and rebuilding the image: `minikube image
+load` + `kubectl rollout restart deployment/heart-disease-api` rolled both
+replicas over to the new image with zero manual pod deletion, and the same
+`curl` checks against `/health` and `/predict` returned the identical
+prediction as before — expected, since Random Forest (the deployed model)
+didn't change; only the image's dependency set did.
+
 ## 11. Monitoring & Logging
 
 The API logs every request (method, path, status code, latency) via a
