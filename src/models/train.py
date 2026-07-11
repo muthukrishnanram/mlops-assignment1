@@ -39,6 +39,7 @@ FINAL_MODEL_DIR = ROOT / "models" / "final_model"
 FIGURES_DIR = ROOT / "report" / "figures"
 METRICS_SUMMARY_PATH = ROOT / "report" / "metrics_summary.json"
 EXPERIMENT_NAME = "heart-disease-classification"
+REGISTERED_MODEL_NAME = "heart-disease-classifier"
 
 # skops (mlflow's default sklearn serialization format) only trusts a small
 # allowlist of types by default and rejects everything else on save — a
@@ -219,6 +220,20 @@ def main(fast: bool = False) -> dict:
         "Best model: %s (test_roc_auc=%.4f)", best_name, best_result["test_metrics"]["roc_auc"]
     )
 
+    # Registers the winning run's already-logged model under one named, versioned
+    # entry in MLflow's Model Registry — each training run creates a new version,
+    # so REGISTERED_MODEL_NAME accumulates a full history across retrains, not
+    # just the single best-of-this-run artifact exported to FINAL_MODEL_DIR below.
+    registered_version = mlflow.register_model(
+        model_uri=f"runs:/{best_result['run_id']}/model", name=REGISTERED_MODEL_NAME
+    )
+    logger.info(
+        "Registered %s as %s version %s",
+        best_name,
+        REGISTERED_MODEL_NAME,
+        registered_version.version,
+    )
+
     if FINAL_MODEL_DIR.exists():
         shutil.rmtree(FINAL_MODEL_DIR)
     FINAL_MODEL_DIR.parent.mkdir(parents=True, exist_ok=True)
@@ -234,6 +249,8 @@ def main(fast: bool = False) -> dict:
 
     summary = {
         "best_model": best_name,
+        "registered_model_name": REGISTERED_MODEL_NAME,
+        "registered_model_version": registered_version.version,
         "models": {
             name: {
                 "run_id": r["run_id"],

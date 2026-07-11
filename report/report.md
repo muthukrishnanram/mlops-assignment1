@@ -235,6 +235,19 @@ artifact. Opening a run shows all 15 logged metrics (5 CV mean/std pairs +
 
 ![MLflow run detail — random_forest](../screenshots/mlflow_run_detail.png)
 
+**Model Registry:** beyond the per-run model artifact above, the winning
+run's model is also registered as a named, versioned entry —
+`mlflow.register_model(model_uri=f"runs:/{best_run_id}/model",
+name="heart-disease-classifier")` — creating `heart-disease-classifier`
+version 1. Every future retrain that produces a new winner adds another
+version under the same name, giving a versioned history independent of
+any single run, which is the actual MLflow feature "model versions" refers
+to (as distinct from just logging a model per run, which was already
+happening).
+
+![MLflow Model Registry](../screenshots/mlflow_model_registry.png)
+![MLflow Model Registry — version detail](../screenshots/mlflow_model_registry_detail.png)
+
 `report/metrics_summary.json` also captures a machine-readable summary of
 all three runs (params, CV mean ROC-AUC, full test metrics) as a durable,
 diff-able record independent of the `mlruns/` directory (which is

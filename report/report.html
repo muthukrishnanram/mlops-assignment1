@@ -258,6 +258,17 @@ experiment with their source (<code>train.py</code>), duration, and linked model
 artifact. Opening a run shows all 15 logged metrics (5 CV mean/std pairs +
 5 held-out test metrics) alongside its parameters and run metadata:</p>
 <p><img alt="MLflow run detail — random_forest" src="../screenshots/mlflow_run_detail.png" /></p>
+<p><strong>Model Registry:</strong> beyond the per-run model artifact above, the winning
+run's model is also registered as a named, versioned entry —
+<code>mlflow.register_model(model_uri=f"runs:/{best_run_id}/model",
+name="heart-disease-classifier")</code> — creating <code>heart-disease-classifier</code>
+version 1. Every future retrain that produces a new winner adds another
+version under the same name, giving a versioned history independent of
+any single run, which is the actual MLflow feature "model versions" refers
+to (as distinct from just logging a model per run, which was already
+happening).</p>
+<p><img alt="MLflow Model Registry" src="../screenshots/mlflow_model_registry.png" />
+<img alt="MLflow Model Registry — version detail" src="../screenshots/mlflow_model_registry_detail.png" /></p>
 <p><code>report/metrics_summary.json</code> also captures a machine-readable summary of
 all three runs (params, CV mean ROC-AUC, full test metrics) as a durable,
 diff-able record independent of the <code>mlruns/</code> directory (which is
