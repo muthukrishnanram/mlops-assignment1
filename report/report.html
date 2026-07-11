@@ -93,6 +93,10 @@ resolves to an <em>identical</em> pinned version in both:</p>
 (id=45, Cleveland subset), fetched programmatically via the <code>ucimlrepo</code>
 package in <code>data/download_data.py</code> — 303 rows, 13 features, and a 5-class
 target (<code>num</code>, 0 = no disease, 1–4 = increasing severity).</p>
+<p><strong>Missing value analysis</strong> (run on the raw, pre-cleaning download — the
+cleaned CSV has none left by construction): only two of the 13 features
+carry any missing values at all, and both are minor.</p>
+<p><img alt="Missing values per column" src="figures/missing_values.png" /></p>
 <p><strong>Cleaning (<code>src/data/preprocess.py</code>):</strong></p>
 <ul>
 <li><code>ca</code> and <code>thal</code> — two categorical columns — had 4 and 2 missing values

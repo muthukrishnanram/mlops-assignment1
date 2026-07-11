@@ -1,8 +1,12 @@
-"""Exploratory Data Analysis for the cleaned Heart Disease dataset.
+"""Exploratory Data Analysis for the Heart Disease dataset.
 
-Reads data/processed/heart_clean.csv (see src/data/preprocess.py) and writes
-professional EDA visualizations to report/figures/: per-feature histograms,
-a correlation heatmap, and a class-balance bar chart.
+Reads data/raw/heart_disease.csv (see data/download_data.py) for the missing-
+value analysis — the cleaned CSV has none left, by definition, so that
+analysis has to run on the pre-cleaning data — and
+data/processed/heart_clean.csv (see src/data/preprocess.py) for everything
+else, writing professional EDA visualizations to report/figures/: missing
+values, per-feature histograms, a correlation heatmap, and a class-balance
+bar chart.
 
 Usage:
     python src/eda.py
@@ -28,12 +32,35 @@ logger = logging.getLogger(__name__)
 
 sns.set_theme(style="whitegrid")
 
+RAW_DATA_PATH = Path(__file__).resolve().parents[1] / "data" / "raw" / "heart_disease.csv"
 PROCESSED_DATA_PATH = Path(__file__).resolve().parents[1] / "data" / "processed" / "heart_clean.csv"
 FIGURES_DIR = Path(__file__).resolve().parents[1] / "report" / "figures"
 
 TARGET_LABELS = {0: "No disease", 1: "Disease present"}
 HUE_ORDER = ["No disease", "Disease present"]
 HUE_PALETTE = {"No disease": "#4C72B0", "Disease present": "#C44E52"}
+
+
+def plot_missing_values(raw_df: pd.DataFrame, out_dir: Path) -> None:
+    """Missing-value counts per column in the *raw*, pre-cleaning data — the
+    cleaned CSV has none left by construction, so this has to run on the raw
+    download to be meaningful."""
+    missing = raw_df.isna().sum().sort_values(ascending=False)
+    fig, ax = plt.subplots(figsize=(8, 4))
+    colors = ["#C44E52" if v > 0 else "#B0B0B0" for v in missing.values]
+    sns.barplot(
+        x=missing.index, y=missing.values, hue=missing.index, palette=colors, legend=False, ax=ax
+    )
+    for i, v in enumerate(missing.values):
+        if v > 0:
+            ax.text(i, v + 0.1, str(v), ha="center", fontweight="bold")
+    ax.set_title(f"Missing Values per Column (raw data, n={len(raw_df)} rows)")
+    ax.set_ylabel("Missing count")
+    ax.set_xlabel("")
+    plt.setp(ax.get_xticklabels(), rotation=45, ha="right")
+    fig.tight_layout()
+    fig.savefig(out_dir / "missing_values.png", dpi=150)
+    plt.close(fig)
 
 
 def plot_class_balance(df: pd.DataFrame, out_dir: Path) -> None:
@@ -106,14 +133,18 @@ def plot_correlation_heatmap(df: pd.DataFrame, out_dir: Path) -> None:
 
 
 def main() -> None:
+    if not RAW_DATA_PATH.exists():
+        raise FileNotFoundError(f"{RAW_DATA_PATH} not found — run data/download_data.py first")
     if not PROCESSED_DATA_PATH.exists():
         raise FileNotFoundError(
             f"{PROCESSED_DATA_PATH} not found — run src/data/preprocess.py first"
         )
+    raw_df = pd.read_csv(RAW_DATA_PATH)
     df = pd.read_csv(PROCESSED_DATA_PATH)
 
     FIGURES_DIR.mkdir(parents=True, exist_ok=True)
 
+    plot_missing_values(raw_df, FIGURES_DIR)
     plot_class_balance(df, FIGURES_DIR)
     plot_continuous_histograms(df, FIGURES_DIR)
     plot_categorical_counts(df, FIGURES_DIR)

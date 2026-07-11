@@ -85,6 +85,12 @@ resolves to an *identical* pinned version in both:
 package in `data/download_data.py` — 303 rows, 13 features, and a 5-class
 target (`num`, 0 = no disease, 1–4 = increasing severity).
 
+**Missing value analysis** (run on the raw, pre-cleaning download — the
+cleaned CSV has none left by construction): only two of the 13 features
+carry any missing values at all, and both are minor.
+
+![Missing values per column](figures/missing_values.png)
+
 **Cleaning (`src/data/preprocess.py`):**
 
 - `ca` and `thal` — two categorical columns — had 4 and 2 missing values
