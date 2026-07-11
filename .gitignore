@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# MLflow local tracking store (bulky pickled artifacts per run — not committed)
+mlruns/
+mlartifacts/
+
+# Data (raw dataset is fetched by download_data.py; keep processed CSV committed for reproducibility)
+data/raw/*
+!data/raw/.gitkeep
+
+# Env/secrets
+.env
+*.env.local
+
+# OS
+.DS_Store
+
+# Docker
+*.log
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Kubernetes / minikube local state
+kubeconfig
+
+# Grafana runtime state (docker volume, not the provisioning config)
+monitoring/grafana/data/

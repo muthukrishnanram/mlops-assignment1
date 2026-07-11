@@ -1,0 +1,21 @@
+# Core data/ML
+pandas
+numpy
+scikit-learn
+scipy
+matplotlib
+seaborn
+joblib
+ucimlrepo
+
+# Experiment tracking / model packaging client (skinny: no tracking-server/UI deps,
+# safe to use identically in the training venv and the serving Docker image)
+mlflow-skinny
+cloudpickle
+
+# Serving API
+fastapi
+uvicorn[standard]
+pydantic
+prometheus-client
+python-multipart

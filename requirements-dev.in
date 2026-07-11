@@ -1,0 +1,18 @@
+# Resolved together with requirements.in (see scripts/compile_requirements.sh) so both
+# land on one mutually-consistent set of pinned versions.
+-r requirements.in
+
+# Full mlflow adds the local tracking-server/UI (flask, gunicorn, sqlalchemy...) — dev-only,
+# never needed inside the serving Docker image which only *loads* an already-exported model.
+# Must match mlflow-skinny's version exactly or the resolver can pick an unrelated old
+# `mlflow` release whose protobuf-generated stubs are incompatible.
+mlflow==3.14.0
+
+# Testing
+pytest
+pytest-cov
+httpx
+
+# Lint/format
+ruff
+black
