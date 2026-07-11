@@ -21,6 +21,8 @@ Column semantics (UCI Heart Disease / Cleveland, id=45):
 RAW_TARGET_COL = "num"
 TARGET_COL = "target"
 
+RANDOM_STATE = 42
+
 CONTINUOUS_FEATURES = ["age", "trestbps", "chol", "thalach", "oldpeak"]
 CATEGORICAL_FEATURES = ["sex", "cp", "fbs", "restecg", "exang", "slope", "ca", "thal"]
 

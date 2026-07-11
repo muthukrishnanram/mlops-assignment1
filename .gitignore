@@ -14,6 +14,8 @@ htmlcov/
 # MLflow local tracking store (bulky pickled artifacts per run — not committed)
 mlruns/
 mlartifacts/
+mlflow.db
+mlflow.db-*
 
 # Data (raw dataset is fetched by download_data.py; keep processed CSV committed for reproducibility)
 data/raw/*
