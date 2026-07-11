@@ -22,10 +22,10 @@ from playwright.sync_api import sync_playwright
 with sync_playwright() as p:
     browser = p.chromium.launch()
     page = browser.new_page()
-    page.goto("file:///report/report.html", wait_until="load", timeout=30000)
+    page.goto("file:///workspace/report/report.html", wait_until="load", timeout=30000)
     page.wait_for_timeout(1000)
     page.pdf(
-        path="/report/report.pdf",
+        path="/workspace/report/report.pdf",
         format="A4",
         margin={"top": "0mm", "bottom": "0mm", "left": "0mm", "right": "0mm"},
         print_background=True,
@@ -33,9 +33,11 @@ with sync_playwright() as p:
 print("Wrote report.pdf")
 EOF
 
+# Mount the whole repo (not just report/) — report.md references images one
+# level up via ../screenshots/*.png, which a report/-only mount can't resolve.
 docker run --rm \
   -v "$TMPDIR/make_pdf.py:/make_pdf.py:ro" \
-  -v "$(pwd)/report:/report" \
+  -v "$(pwd):/workspace" \
   -e PLAYWRIGHT_BROWSERS_PATH=/ms-playwright \
   mcr.microsoft.com/playwright/python:v1.61.0-noble \
   bash -c "pip install -q playwright==1.61.0 && python /make_pdf.py"
