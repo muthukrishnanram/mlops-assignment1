@@ -1,7 +1,10 @@
 [tool.ruff]
 line-length = 100
 target-version = "py312"
-exclude = [".venv", "mlruns", "models"]
+# notebooks/ intentionally does sys.path.insert() before importing src.* in the
+# same cell (there's no other way to make the repo importable from notebooks/),
+# which trips E402 — a script-lint rule that doesn't fit notebook conventions.
+exclude = [".venv", "mlruns", "models", "notebooks"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "W"]

@@ -18,6 +18,7 @@ python src/models/train.py                  # trains, cross-validates, logs to M
 
 pytest -q                                   # unit tests
 uvicorn api.main:app --reload               # local API on http://localhost:8000
+jupyter lab notebooks/                      # optional: interactive EDA/training walkthrough
 ```
 
 Or run the whole clean-setup-to-trained-model sequence in one command: `make setup`.
@@ -31,6 +32,7 @@ Or run the whole clean-setup-to-trained-model sequence in one command: `make set
 | `src/eda.py` | Exploratory plots (histograms, correlation heatmap, class balance) |
 | `src/features/build_features.py` | `ColumnTransformer` used by both training and the exported model |
 | `src/models/train.py` | Trains/tunes Logistic Regression + Random Forest, logs to MLflow, exports final model |
+| `notebooks/` | `01_eda.ipynb` / `02_training.ipynb` — narrative walkthroughs that call the same tested `src/` functions (not a second copy of the logic); pre-executed with real output, also smoke-tested in CI |
 | `api/main.py` | FastAPI serving app: `/predict`, `/health`, `/metrics` |
 | `tests/` | pytest unit tests for data/features/model/API code |
 | `Dockerfile` | Container image for the serving API |

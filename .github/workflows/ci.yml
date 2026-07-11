@@ -46,6 +46,11 @@ jobs:
       - name: Train (fast smoke-test grid, not the full tuned run)
         run: python src/models/train.py --fast
 
+      - name: Execute notebooks (smoke test — catches breakage, not published)
+        run: |
+          jupyter nbconvert --to notebook --execute --output /tmp/eda_out.ipynb notebooks/01_eda.ipynb
+          jupyter nbconvert --to notebook --execute --output /tmp/training_out.ipynb notebooks/02_training.ipynb
+
       - name: Run unit tests
         run: >
           pytest -q --cov=src --cov=api --cov-report=term-missing

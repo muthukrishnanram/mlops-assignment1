@@ -16,3 +16,9 @@ httpx
 # Lint/format
 ruff
 black
+
+# Notebooks (notebooks/ are thin wrappers over src/ — narrative + calls into the
+# same tested functions the scripts use, not a second copy of the logic)
+jupyter
+nbconvert
+ipykernel
