@@ -243,8 +243,14 @@ a broken health check actually fails the job):
    and asserts a valid response — the literal "Docker container build/test
    proof" the assignment asks for, run automatically on every push.
 
-_TODO: GitHub Actions run screenshot — pending pushing this repo to a GitHub
-remote (deferred; this environment only has git configured locally so far)._
+Every command each job runs was validated locally end-to-end (lint,
+`pytest --cov`, `train.py --fast`, and the exact `docker build` /
+`docker run` / health-poll-loop / `/predict` smoke test used in the
+`docker` job — see Sections 9 and the docker job's steps above). Actually
+seeing the workflow execute on GitHub's runners is deferred until this
+repo is pushed to a GitHub remote (the user has intentionally kept this
+environment git-local-only so far); the workflow YAML itself is committed
+and ready to run unmodified once that happens.
 
 ## 9. Model Containerization
 

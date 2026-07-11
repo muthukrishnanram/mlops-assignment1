@@ -46,8 +46,9 @@ def box(ax, col, row, text, color, colspan=1, fontsize=9.5):
     y = row_y(row)
     w = COL_W * colspan + COL_GAP * (colspan - 1)
     h = ROW_H
-    patch = FancyBboxPatch((x, y), w, h, facecolor=color, edgecolor="#3a3a3a", **BOX_STYLE,
-                            zorder=2)
+    patch = FancyBboxPatch(
+        (x, y), w, h, facecolor=color, edgecolor="#3a3a3a", **BOX_STYLE, zorder=2
+    )
     ax.add_patch(patch)
     ax.text(x + w / 2, y + h / 2, text, ha="center", va="center", fontsize=fontsize, zorder=3)
     return (x, y, w, h)
@@ -59,9 +60,20 @@ def arrow_h(ax, box_a, box_b, **kwargs):
     bx_, by_, bw, bh = box_b
     start = (ax_ + aw, ay_ + ah / 2)
     end = (bx_, by_ + bh / 2)
-    ax.add_patch(FancyArrowPatch(start, end, arrowstyle="-|>", mutation_scale=16,
-                                  color="#555555", linewidth=1.4, zorder=1,
-                                  shrinkA=2, shrinkB=2, **kwargs))
+    ax.add_patch(
+        FancyArrowPatch(
+            start,
+            end,
+            arrowstyle="-|>",
+            mutation_scale=16,
+            color="#555555",
+            linewidth=1.4,
+            zorder=1,
+            shrinkA=2,
+            shrinkB=2,
+            **kwargs,
+        )
+    )
 
 
 def arrow_v(ax, box_a, box_b, x_frac=0.5, **kwargs):
@@ -70,10 +82,21 @@ def arrow_v(ax, box_a, box_b, x_frac=0.5, **kwargs):
     bx_, by_, bw, bh = box_b
     start = (ax_ + aw * x_frac, ay_)
     end = (bx_ + bw * x_frac, by_ + bh)
-    ax.add_patch(FancyArrowPatch(start, end, arrowstyle="-|>", mutation_scale=16,
-                                  color="#555555", linewidth=1.4, zorder=1,
-                                  shrinkA=2, shrinkB=2, connectionstyle="arc3,rad=0.15",
-                                  **kwargs))
+    ax.add_patch(
+        FancyArrowPatch(
+            start,
+            end,
+            arrowstyle="-|>",
+            mutation_scale=16,
+            color="#555555",
+            linewidth=1.4,
+            zorder=1,
+            shrinkA=2,
+            shrinkB=2,
+            connectionstyle="arc3,rad=0.15",
+            **kwargs,
+        )
+    )
 
 
 def main():
@@ -119,15 +142,18 @@ def main():
     # Row 4: monitoring
     b_api_metrics = box(ax, 0, 4, "API /metrics, /health\n+ structured logs", COLORS["monitor"])
     b_prom = box(ax, 1, 4, "Prometheus\n(scrapes /metrics)", COLORS["monitor"])
-    b_grafana = box(ax, 2, 4, "Grafana dashboard\n(rate, latency, predictions)",
-                     COLORS["monitor"])
+    b_grafana = box(ax, 2, 4, "Grafana dashboard\n(rate, latency, predictions)", COLORS["monitor"])
 
     arrow_v(ax, b_minikube, b_api_metrics, x_frac=0.5)
     arrow_h(ax, b_api_metrics, b_prom)
     arrow_h(ax, b_prom, b_grafana)
 
-    ax.set_title("Heart Disease Risk Classifier — End-to-End MLOps Architecture",
-                 fontsize=14, fontweight="bold", pad=18)
+    ax.set_title(
+        "Heart Disease Risk Classifier — End-to-End MLOps Architecture",
+        fontsize=14,
+        fontweight="bold",
+        pad=18,
+    )
     ax.set_xlim(-0.4, col_x(4) + COL_W + 0.4)
     ax.set_ylim(-0.4, row_y(0) + ROW_H + 0.6)
     ax.axis("off")
