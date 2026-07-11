@@ -150,8 +150,9 @@ well under 0.6 among the continuous features themselves).</p>
   instead of crashing the API — covered explicitly in
   <code>tests/test_features.py</code>.</li>
 </ul>
-<p><strong>Models (<code>src/models/train.py</code>):</strong> two classifiers, as suggested by the
-assignment, each wrapped in one <code>Pipeline([("preprocessor", ...),
+<p><strong>Models (<code>src/models/train.py</code>):</strong> three classifiers — two more than the
+assignment's minimum, and XGBoost is explicitly named as an example choice
+in the FAQ — each wrapped in one <code>Pipeline([("preprocessor", ...),
 ("classifier", ...)])</code> so preprocessing and model are always versioned and
 served together:</p>
 <ul>
@@ -159,6 +160,9 @@ served together:</p>
 <li><strong>Random Forest</strong> — <code>n_estimators</code> over <code>[100, 200, 300]</code>, <code>max_depth</code>
   over <code>[None, 5, 10]</code>, <code>min_samples_leaf</code> over <code>[1, 2, 4]</code> (27
   combinations).</li>
+<li><strong>XGBoost</strong> — <code>n_estimators</code> over <code>[100, 200, 300]</code>, <code>max_depth</code> over
+  <code>[3, 5, 7]</code>, <code>learning_rate</code> over <code>[0.01, 0.1, 0.2]</code> (27 combinations, for
+  parity with Random Forest's grid size).</li>
 </ul>
 <p><strong>Tuning &amp; evaluation:</strong> <code>GridSearchCV</code> over <code>StratifiedKFold(n_splits=5,
 shuffle=True, random_state=42)</code>, scoring accuracy/precision/recall/F1/
@@ -190,7 +194,7 @@ grid search never sees, for an honest final comparison.</p>
 <td>0.870</td>
 <td>0.714</td>
 <td>0.784</td>
-<td><strong>0.938</strong></td>
+<td>0.938</td>
 </tr>
 <tr>
 <td>Random Forest</td>
@@ -202,18 +206,40 @@ grid search never sees, for an honest final comparison.</p>
 <td><strong>0.830</strong></td>
 <td><strong>0.943</strong></td>
 </tr>
+<tr>
+<td>XGBoost</td>
+<td><code>n_estimators=300, max_depth=3, learning_rate=0.01</code></td>
+<td>0.887</td>
+<td>0.817</td>
+<td>0.870</td>
+<td>0.714</td>
+<td>0.784</td>
+<td>0.921</td>
+</tr>
 </tbody>
 </table>
 <p>Random Forest wins narrowly on every held-out metric and is exported as the
-final model. The gap is small enough that Logistic Regression remains a
-reasonable, more-interpretable fallback — noted here rather than discarded,
-since interpretability matters for a clinical-adjacent use case.</p>
+final model. XGBoost comes in last of the three, not first — on a dataset
+this small (237 training rows), boosting's extra capacity is a liability
+more than an asset: the grid search's own winning hyperparameters
+(<code>learning_rate=0.01</code>, the smallest offered) show it pulling <em>toward</em> the
+conservative end of its own search space to avoid overfitting, and it still
+trails a plain bagged Random Forest and even Logistic Regression on
+ranking quality (ROC-AUC). This is a legitimate, reportable result, not a
+tuning failure — it's a reasonable demonstration that "more sophisticated
+model" doesn't automatically mean "better," especially at this sample size.
+The gap between Random Forest and Logistic Regression is small enough that
+Logistic Regression remains a reasonable, more-interpretable fallback —
+noted here rather than discarded, since interpretability matters for a
+clinical-adjacent use case.</p>
 <p><img alt="Random Forest confusion matrix" src="figures/confusion_matrix_random_forest.png" />
-<img alt="Random Forest ROC curve" src="figures/roc_curve_random_forest.png" /></p>
+<img alt="Random Forest ROC curve" src="figures/roc_curve_random_forest.png" />
+<img alt="XGBoost confusion matrix" src="figures/confusion_matrix_xgboost.png" />
+<img alt="XGBoost ROC curve" src="figures/roc_curve_xgboost.png" /></p>
 <p><code>train.py --fast</code> runs the same pipeline with a 1-combination grid and
-2-fold CV (~15s total for both models) — used only by CI as a smoke test
-that the training code path still runs end-to-end; the tuned numbers above
-come from the full run (<code>python src/models/train.py</code>, no flags).</p>
+2-fold CV (~35s total for all three models) — used only by CI as a smoke
+test that the training code path still runs end-to-end; the tuned numbers
+above come from the full run (<code>python src/models/train.py</code>, no flags).</p>
 <h2 id="6-experiment-tracking-mlflow">6. Experiment Tracking (MLflow)</h2>
 <p>Every <code>GridSearchCV</code> run is logged as one MLflow run under the
 <code>heart-disease-classification</code> experiment: best hyperparameters, mean/std of
@@ -227,15 +253,15 @@ Inspect with:</p>
 <pre><code class="language-bash">mlflow ui --backend-store-uri sqlite:///mlflow.db
 </code></pre>
 <p><img alt="MLflow Training runs list" src="../screenshots/mlflow_experiment_runs.png" /></p>
-<p>Both runs are visible under the <code>heart-disease-classification</code> experiment
-with their source (<code>train.py</code>), duration, and linked model artifact. Opening
-a run shows all 15 logged metrics (5 CV mean/std pairs + 5 held-out test
-metrics) alongside its parameters and run metadata:</p>
+<p>All three runs are visible under the <code>heart-disease-classification</code>
+experiment with their source (<code>train.py</code>), duration, and linked model
+artifact. Opening a run shows all 15 logged metrics (5 CV mean/std pairs +
+5 held-out test metrics) alongside its parameters and run metadata:</p>
 <p><img alt="MLflow run detail — random_forest" src="../screenshots/mlflow_run_detail.png" /></p>
 <p><code>report/metrics_summary.json</code> also captures a machine-readable summary of
-both runs (params, CV mean ROC-AUC, full test metrics) as a durable, diff-able
-record independent of the <code>mlruns/</code> directory (which is gitignored — it's
-bulky, pickled-per-run, and not meant to be shipped).</p>
+all three runs (params, CV mean ROC-AUC, full test metrics) as a durable,
+diff-able record independent of the <code>mlruns/</code> directory (which is
+gitignored — it's bulky, pickled-per-run, and not meant to be shipped).</p>
 <h2 id="7-model-packaging-reproducibility">7. Model Packaging &amp; Reproducibility</h2>
 <p>The winning pipeline is exported via <code>mlflow.sklearn.save_model()</code> to
 <code>models/final_model/</code> — the <strong>only</strong> model artifact committed to the repo
@@ -261,6 +287,18 @@ serving-only install couldn't deserialize the model at all until <code>skops</co
 added to <code>requirements.in</code> directly (see <code>src/models/predict.py</code> and the
 commit history for the fix). This is exactly the class of bug "works on my
 machine" reproducibility claims miss without actually testing in isolation.</p>
+<p>Adding XGBoost surfaced a second, related issue: skops maintains an
+allowlist of types it trusts by default, and <code>xgboost.sklearn.XGBClassifier</code>
+/ <code>xgboost.core.Booster</code> aren't on it — <code>mlflow.sklearn.save_model()</code> raised
+<code>UntrustedTypesFoundException</code> the first time an XGBoost pipeline was saved.
+This is skops working as intended (refusing to silently trust arbitrary
+types), not a bug to route around quietly. Since these are our own
+freshly-trained model objects, not a third-party file of unknown
+provenance, explicitly passing <code>skops_trusted_types=["xgboost.core.Booster",
+"xgboost.sklearn.XGBClassifier"]</code> to <code>save_model()</code>/<code>log_model()</code> is the
+correct fix (<code>src/models/train.py</code>) — verified with a full save→load→predict
+round trip on a real XGBoost pipeline before trusting it in the actual
+training run.</p>
 <h2 id="8-cicd-pipeline-automated-testing">8. CI/CD Pipeline &amp; Automated Testing</h2>
 <p><strong>Unit tests</strong> (<code>tests/</code>, 18 tests, <code>pytest -q</code>): <code>test_data.py</code> targets the
 dataset's one real data-quality issue (missing <code>ca</code>/<code>thal</code>) with synthetic

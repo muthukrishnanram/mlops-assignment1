@@ -154,8 +154,9 @@ well under 0.6 among the continuous features themselves).
   instead of crashing the API — covered explicitly in
   `tests/test_features.py`.
 
-**Models (`src/models/train.py`):** two classifiers, as suggested by the
-assignment, each wrapped in one `Pipeline([("preprocessor", ...),
+**Models (`src/models/train.py`):** three classifiers — two more than the
+assignment's minimum, and XGBoost is explicitly named as an example choice
+in the FAQ — each wrapped in one `Pipeline([("preprocessor", ...),
 ("classifier", ...)])` so preprocessing and model are always versioned and
 served together:
 
@@ -163,6 +164,9 @@ served together:
 - **Random Forest** — `n_estimators` over `[100, 200, 300]`, `max_depth`
   over `[None, 5, 10]`, `min_samples_leaf` over `[1, 2, 4]` (27
   combinations).
+- **XGBoost** — `n_estimators` over `[100, 200, 300]`, `max_depth` over
+  `[3, 5, 7]`, `learning_rate` over `[0.01, 0.1, 0.2]` (27 combinations, for
+  parity with Random Forest's grid size).
 
 **Tuning & evaluation:** `GridSearchCV` over `StratifiedKFold(n_splits=5,
 shuffle=True, random_state=42)`, scoring accuracy/precision/recall/F1/
@@ -176,21 +180,34 @@ grid search never sees, for an honest final comparison.
 
 | Model | Best params | CV ROC-AUC (mean) | Test accuracy | Test precision | Test recall | Test F1 | Test ROC-AUC |
 |---|---|---|---|---|---|---|---|
-| Logistic Regression | `C=1.0` | 0.902 | 0.817 | 0.870 | 0.714 | 0.784 | **0.938** |
+| Logistic Regression | `C=1.0` | 0.902 | 0.817 | 0.870 | 0.714 | 0.784 | 0.938 |
 | Random Forest | `n_estimators=300, max_depth=None, min_samples_leaf=4` | 0.906 | **0.850** | **0.880** | 0.786 | **0.830** | **0.943** |
+| XGBoost | `n_estimators=300, max_depth=3, learning_rate=0.01` | 0.887 | 0.817 | 0.870 | 0.714 | 0.784 | 0.921 |
 
 Random Forest wins narrowly on every held-out metric and is exported as the
-final model. The gap is small enough that Logistic Regression remains a
-reasonable, more-interpretable fallback — noted here rather than discarded,
-since interpretability matters for a clinical-adjacent use case.
+final model. XGBoost comes in last of the three, not first — on a dataset
+this small (237 training rows), boosting's extra capacity is a liability
+more than an asset: the grid search's own winning hyperparameters
+(`learning_rate=0.01`, the smallest offered) show it pulling *toward* the
+conservative end of its own search space to avoid overfitting, and it still
+trails a plain bagged Random Forest and even Logistic Regression on
+ranking quality (ROC-AUC). This is a legitimate, reportable result, not a
+tuning failure — it's a reasonable demonstration that "more sophisticated
+model" doesn't automatically mean "better," especially at this sample size.
+The gap between Random Forest and Logistic Regression is small enough that
+Logistic Regression remains a reasonable, more-interpretable fallback —
+noted here rather than discarded, since interpretability matters for a
+clinical-adjacent use case.
 
 ![Random Forest confusion matrix](figures/confusion_matrix_random_forest.png)
 ![Random Forest ROC curve](figures/roc_curve_random_forest.png)
+![XGBoost confusion matrix](figures/confusion_matrix_xgboost.png)
+![XGBoost ROC curve](figures/roc_curve_xgboost.png)
 
 `train.py --fast` runs the same pipeline with a 1-combination grid and
-2-fold CV (~15s total for both models) — used only by CI as a smoke test
-that the training code path still runs end-to-end; the tuned numbers above
-come from the full run (`python src/models/train.py`, no flags).
+2-fold CV (~35s total for all three models) — used only by CI as a smoke
+test that the training code path still runs end-to-end; the tuned numbers
+above come from the full run (`python src/models/train.py`, no flags).
 
 ## 6. Experiment Tracking (MLflow)
 
@@ -211,17 +228,17 @@ mlflow ui --backend-store-uri sqlite:///mlflow.db
 
 ![MLflow Training runs list](../screenshots/mlflow_experiment_runs.png)
 
-Both runs are visible under the `heart-disease-classification` experiment
-with their source (`train.py`), duration, and linked model artifact. Opening
-a run shows all 15 logged metrics (5 CV mean/std pairs + 5 held-out test
-metrics) alongside its parameters and run metadata:
+All three runs are visible under the `heart-disease-classification`
+experiment with their source (`train.py`), duration, and linked model
+artifact. Opening a run shows all 15 logged metrics (5 CV mean/std pairs +
+5 held-out test metrics) alongside its parameters and run metadata:
 
 ![MLflow run detail — random_forest](../screenshots/mlflow_run_detail.png)
 
 `report/metrics_summary.json` also captures a machine-readable summary of
-both runs (params, CV mean ROC-AUC, full test metrics) as a durable, diff-able
-record independent of the `mlruns/` directory (which is gitignored — it's
-bulky, pickled-per-run, and not meant to be shipped).
+all three runs (params, CV mean ROC-AUC, full test metrics) as a durable,
+diff-able record independent of the `mlruns/` directory (which is
+gitignored — it's bulky, pickled-per-run, and not meant to be shipped).
 
 ## 7. Model Packaging & Reproducibility
 
@@ -249,6 +266,19 @@ serving-only install couldn't deserialize the model at all until `skops` was
 added to `requirements.in` directly (see `src/models/predict.py` and the
 commit history for the fix). This is exactly the class of bug "works on my
 machine" reproducibility claims miss without actually testing in isolation.
+
+Adding XGBoost surfaced a second, related issue: skops maintains an
+allowlist of types it trusts by default, and `xgboost.sklearn.XGBClassifier`
+/ `xgboost.core.Booster` aren't on it — `mlflow.sklearn.save_model()` raised
+`UntrustedTypesFoundException` the first time an XGBoost pipeline was saved.
+This is skops working as intended (refusing to silently trust arbitrary
+types), not a bug to route around quietly. Since these are our own
+freshly-trained model objects, not a third-party file of unknown
+provenance, explicitly passing `skops_trusted_types=["xgboost.core.Booster",
+"xgboost.sklearn.XGBClassifier"]` to `save_model()`/`log_model()` is the
+correct fix (`src/models/train.py`) — verified with a full save→load→predict
+round trip on a real XGBoost pipeline before trusting it in the actual
+training run.
 
 ## 8. CI/CD Pipeline & Automated Testing
 

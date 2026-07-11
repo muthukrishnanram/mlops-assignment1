@@ -7,6 +7,10 @@ matplotlib
 seaborn
 joblib
 ucimlrepo
+# In the base (serving) requirements, not just dev, because whichever model
+# wins train.py's comparison becomes models/final_model/ — the serving image
+# must be able to unpickle it regardless of which algorithm that turns out to be.
+xgboost
 
 # Experiment tracking / model packaging client (skinny: no tracking-server/UI deps,
 # safe to use identically in the training venv and the serving Docker image)

@@ -39,9 +39,9 @@ def test_compute_metrics_all_wrong_predictions():
 
 
 @pytest.mark.parametrize("fast", [True, False])
-def test_get_model_configs_returns_both_models(fast):
+def test_get_model_configs_returns_all_three_models(fast):
     configs = get_model_configs(fast=fast)
-    assert set(configs.keys()) == {"logistic_regression", "random_forest"}
+    assert set(configs.keys()) == {"logistic_regression", "random_forest", "xgboost"}
     for _estimator, param_grid, cv in configs.values():
         assert isinstance(param_grid, dict) and len(param_grid) > 0
         assert cv.get_n_splits() == (2 if fast else 5)

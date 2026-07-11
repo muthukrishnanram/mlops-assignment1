@@ -1,6 +1,6 @@
-"""Train, cross-validate, and MLflow-track Logistic Regression + Random Forest
-classifiers for heart disease risk, then export the better one as the final
-packaged model.
+"""Train, cross-validate, and MLflow-track Logistic Regression, Random Forest,
+and XGBoost classifiers for heart disease risk, then export the best of the
+three as the final packaged model.
 
 Usage:
     python src/models/train.py            # full tuning run (reported results)
@@ -22,6 +22,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import GridSearchCV, StratifiedKFold, train_test_split
 from sklearn.pipeline import Pipeline
+from xgboost import XGBClassifier
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
@@ -38,6 +39,13 @@ FINAL_MODEL_DIR = ROOT / "models" / "final_model"
 FIGURES_DIR = ROOT / "report" / "figures"
 METRICS_SUMMARY_PATH = ROOT / "report" / "metrics_summary.json"
 EXPERIMENT_NAME = "heart-disease-classification"
+
+# skops (mlflow's default sklearn serialization format) only trusts a small
+# allowlist of types by default and rejects everything else on save — a
+# genuine safety feature, not a bug. These are our own freshly-trained model
+# objects (not a third-party file), so explicitly trusting xgboost's classes
+# here is safe; harmless to pass for the LR/RF runs too.
+SKOPS_TRUSTED_TYPES = ["xgboost.core.Booster", "xgboost.sklearn.XGBClassifier"]
 
 
 def get_model_configs(fast: bool) -> dict:
@@ -62,6 +70,11 @@ def get_model_configs(fast: bool) -> dict:
                 {"classifier__n_estimators": [50], "classifier__max_depth": [5]},
                 cv,
             ),
+            "xgboost": (
+                XGBClassifier(random_state=RANDOM_STATE, eval_metric="logloss"),
+                {"classifier__n_estimators": [50], "classifier__max_depth": [3]},
+                cv,
+            ),
         }
 
     return {
@@ -81,6 +94,15 @@ def get_model_configs(fast: bool) -> dict:
             },
             cv,
         ),
+        "xgboost": (
+            XGBClassifier(random_state=RANDOM_STATE, eval_metric="logloss"),
+            {
+                "classifier__n_estimators": [100, 200, 300],
+                "classifier__max_depth": [3, 5, 7],
+                "classifier__learning_rate": [0.01, 0.1, 0.2],
+            },
+            cv,
+        ),
     }
 
 
@@ -97,8 +119,9 @@ def load_data():
     return train_test_split(X, y, test_size=0.2, stratify=y, random_state=RANDOM_STATE)
 
 
-def train_and_log_model(name: str, estimator, param_grid: dict, cv, X_train, y_train,
-                         X_test, y_test) -> dict:
+def train_and_log_model(
+    name: str, estimator, param_grid: dict, cv, X_train, y_train, X_test, y_test
+) -> dict:
     pipeline = Pipeline([("preprocessor", build_preprocessor()), ("classifier", estimator)])
 
     scoring = {
@@ -108,9 +131,7 @@ def train_and_log_model(name: str, estimator, param_grid: dict, cv, X_train, y_t
         "f1": "f1",
         "roc_auc": "roc_auc",
     }
-    search = GridSearchCV(
-        pipeline, param_grid, cv=cv, scoring=scoring, refit="roc_auc", n_jobs=-1
-    )
+    search = GridSearchCV(pipeline, param_grid, cv=cv, scoring=scoring, refit="roc_auc", n_jobs=-1)
 
     with mlflow.start_run(run_name=name):
         logger.info("Training %s (cv folds=%d)...", name, cv.get_n_splits())
@@ -135,11 +156,15 @@ def train_and_log_model(name: str, estimator, param_grid: dict, cv, X_train, y_t
 
         FIGURES_DIR.mkdir(parents=True, exist_ok=True)
         cm_path = plot_confusion_matrix(
-            y_test.to_numpy(), y_pred, FIGURES_DIR / f"confusion_matrix_{name}.png",
+            y_test.to_numpy(),
+            y_pred,
+            FIGURES_DIR / f"confusion_matrix_{name}.png",
             title=f"Confusion Matrix — {name}",
         )
         roc_path = plot_roc_curve(
-            y_test.to_numpy(), y_proba, FIGURES_DIR / f"roc_curve_{name}.png",
+            y_test.to_numpy(),
+            y_proba,
+            FIGURES_DIR / f"roc_curve_{name}.png",
             title=f"ROC Curve — {name}",
         )
         mlflow.log_artifact(str(cm_path))
@@ -147,13 +172,21 @@ def train_and_log_model(name: str, estimator, param_grid: dict, cv, X_train, y_t
 
         signature = infer_signature(X_train, best_pipeline.predict(X_train))
         mlflow.sklearn.log_model(
-            best_pipeline, name="model", signature=signature,
+            best_pipeline,
+            name="model",
+            signature=signature,
             input_example=X_train.head(3),
+            skops_trusted_types=SKOPS_TRUSTED_TYPES,
         )
 
         run_id = mlflow.active_run().info.run_id
-        logger.info("%s: test_roc_auc=%.4f test_accuracy=%.4f (run_id=%s)", name,
-                    test_metrics["roc_auc"], test_metrics["accuracy"], run_id)
+        logger.info(
+            "%s: test_roc_auc=%.4f test_accuracy=%.4f (run_id=%s)",
+            name,
+            test_metrics["roc_auc"],
+            test_metrics["accuracy"],
+            run_id,
+        )
 
     return {
         "run_id": run_id,
@@ -182,16 +215,20 @@ def main(fast: bool = False) -> dict:
 
     best_name = max(results, key=lambda n: results[n]["test_metrics"]["roc_auc"])
     best_result = results[best_name]
-    logger.info("Best model: %s (test_roc_auc=%.4f)", best_name,
-                best_result["test_metrics"]["roc_auc"])
+    logger.info(
+        "Best model: %s (test_roc_auc=%.4f)", best_name, best_result["test_metrics"]["roc_auc"]
+    )
 
     if FINAL_MODEL_DIR.exists():
         shutil.rmtree(FINAL_MODEL_DIR)
     FINAL_MODEL_DIR.parent.mkdir(parents=True, exist_ok=True)
     signature = infer_signature(X_train, best_result["pipeline"].predict(X_train))
     mlflow.sklearn.save_model(
-        best_result["pipeline"], path=str(FINAL_MODEL_DIR), signature=signature,
+        best_result["pipeline"],
+        path=str(FINAL_MODEL_DIR),
+        signature=signature,
         input_example=X_train.head(3),
+        skops_trusted_types=SKOPS_TRUSTED_TYPES,
     )
     logger.info("Exported final model (%s) to %s", best_name, FINAL_MODEL_DIR)
 
@@ -216,7 +253,8 @@ def main(fast: bool = False) -> dict:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--fast", action="store_true",
-                         help="Small grid + 2-fold CV, for CI smoke-testing only")
+    parser.add_argument(
+        "--fast", action="store_true", help="Small grid + 2-fold CV, for CI smoke-testing only"
+    )
     args = parser.parse_args()
     main(fast=args.fast)
