@@ -297,9 +297,23 @@ kubectl get svc heart-disease-api
 curl http://<EXTERNAL-IP>/health
 ```
 
-_TODO: `kubectl get pods,svc` output and a live curl response through the
-exposed endpoint — pending Minikube setup in this environment (same Docker
-installation blocker as above)._
+**Verified locally** (full transcript in `screenshots/minikube_deployment_log.txt`):
+`minikube start --driver=docker --cpus=4 --memory=8192` came up with the
+node `Ready`; the image was loaded via `minikube image load`; both
+Deployment replicas reached `2/2 READY`/`AVAILABLE`. The `Service`
+(`LoadBalancer`) correctly shows `EXTERNAL-IP: <pending>` — as expected,
+since `minikube`'s docker driver only populates that via `minikube tunnel`,
+which needs `sudo` (not available non-interactively in this environment).
+Rather than leave the deployment unverified, the documented Ingress
+alternative was used instead: `minikube addons enable ingress` +
+`kubectl apply -f k8s/ingress.yaml` brought up `ingress-nginx`, and
+`curl --resolve heart-api.local:80:$(minikube ip) http://heart-api.local/...`
+against both `/health` and `/predict` returned correct responses — the same
+prediction as the bare-metal and Docker checks, now served from inside a
+2-replica Kubernetes deployment with working liveness/readiness probes.
+`minikube tunnel` remains documented in `k8s/README.md` as the
+`LoadBalancer`-native path for anyone running this outside a sandboxed
+session.
 
 ## 11. Monitoring & Logging
 

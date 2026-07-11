@@ -1,0 +1,45 @@
+=== minikube status ===
+minikube
+type: Control Plane
+host: Running
+kubelet: Running
+apiserver: Running
+kubeconfig: Configured
+
+
+=== kubectl get nodes ===
+NAME       STATUS   ROLES           AGE   VERSION
+minikube   Ready    control-plane   12m   v1.35.1
+
+=== kubectl get deployment heart-disease-api ===
+NAME                READY   UP-TO-DATE   AVAILABLE   AGE
+heart-disease-api   2/2     2            2           10m
+
+=== kubectl get pods -o wide ===
+NAME                                 READY   STATUS    RESTARTS   AGE   IP           NODE       NOMINATED NODE   READINESS GATES
+heart-disease-api-844d976854-dtj57   1/1     Running   0          10m   10.244.0.4   minikube   <none>           <none>
+heart-disease-api-844d976854-wxt7l   1/1     Running   0          10m   10.244.0.3   minikube   <none>           <none>
+
+=== kubectl get svc heart-disease-api ===
+NAME                TYPE           CLUSTER-IP      EXTERNAL-IP   PORT(S)        AGE
+heart-disease-api   LoadBalancer   10.107.81.240   <pending>     80:30995/TCP   10m
+
+=== kubectl get ingress heart-disease-api ===
+NAME                CLASS   HOSTS             ADDRESS        PORTS   AGE
+heart-disease-api   nginx   heart-api.local   192.168.49.2   80      4m59s
+
+=== minikube ip ===
+192.168.49.2
+
+=== curl --resolve heart-api.local:80:$MINIKUBE_IP http://heart-api.local/health ===
+{"status":"healthy","model_loaded":true}
+
+=== curl --resolve ... -X POST http://heart-api.local/predict -d @sample_input.json ===
+{"prediction":0,"label":"No disease","confidence":0.638963685409977}
+
+=== kubectl describe deployment heart-disease-api (readiness/liveness probes) ===
+    Liveness:      http-get http://:8000/health delay=15s timeout=1s period=10s #success=1 #failure=3
+    Readiness:     http-get http://:8000/health delay=5s timeout=1s period=5s #success=1 #failure=3
+    Environment:   <none>
+    Mounts:        <none>
+  Volumes:         <none>
