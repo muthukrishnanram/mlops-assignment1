@@ -1,0 +1,407 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Heart Disease Risk Classifier — MLOps Report</title>
+<style>
+@page { size: A4; margin: 20mm 18mm; }
+body { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+       color: #1a1a1a; line-height: 1.5; font-size: 11pt; max-width: 800px; margin: 0 auto; }
+h1 { font-size: 20pt; border-bottom: 3px solid #2c3e50; padding-bottom: 6px; }
+h2 { font-size: 15pt; margin-top: 28px; border-bottom: 1px solid #ccc; padding-bottom: 4px;
+     page-break-after: avoid; }
+h3 { font-size: 12.5pt; page-break-after: avoid; }
+p, li { orphans: 3; widows: 3; }
+img { max-width: 100%; display: block; margin: 12px auto; page-break-inside: avoid;
+      border: 1px solid #ddd; }
+pre { background: #f5f5f5; border: 1px solid #ddd; border-radius: 4px; padding: 10px;
+      font-size: 9pt; overflow-x: auto; page-break-inside: avoid; }
+code { background: #f0f0f0; padding: 1px 4px; border-radius: 3px; font-size: 9.5pt; }
+pre code { background: none; padding: 0; }
+table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 9.5pt; }
+th, td { border: 1px solid #bbb; padding: 5px 8px; text-align: left; }
+th { background: #f0f0f0; }
+hr { border: none; border-top: 1px solid #ccc; margin: 20px 0; }
+blockquote { border-left: 3px solid #ccc; margin: 10px 0; padding: 4px 14px; color: #555; }
+</style>
+</head>
+<body>
+<h1 id="heart-disease-risk-classifier-end-to-end-mlops-pipeline">Heart Disease Risk Classifier — End-to-End MLOps Pipeline</h1>
+<p><strong>Course:</strong> AIMLCZG523 — Machine Learning Operations (MLOps), Assignment 01</p>
+<p><strong>Author:</strong> Muthukrishnan Ram</p>
+<p><strong>Repository:</strong> <em>TODO: add GitHub URL once pushed</em></p>
+<p><strong>Deployed API (local Minikube):</strong></p>
+<pre><code class="language-bash">minikube start --driver=docker --cpus=4 --memory=8192
+docker build -t heart-disease-api:latest .
+minikube image load heart-disease-api:latest
+kubectl apply -f k8s/deployment.yaml -f k8s/service.yaml
+minikube addons enable ingress &amp;&amp; kubectl apply -f k8s/ingress.yaml
+curl --resolve heart-api.local:80:$(minikube ip) http://heart-api.local/health
+</code></pre>
+<p>(Full instructions, including the <code>LoadBalancer</code>+<code>minikube tunnel</code> alternative: <code>k8s/README.md</code>.)</p>
+<hr />
+<h2 id="1-executive-summary">1. Executive Summary</h2>
+<p>This project builds a binary classifier that predicts the presence of heart
+disease from 13 patient health features (the UCI Heart Disease / Cleveland
+dataset), and wraps it in a full MLOps lifecycle: automated data acquisition,
+exploratory data analysis, feature engineering, model training with
+cross-validated hyperparameter tuning, MLflow experiment tracking,
+reproducible model packaging, unit-tested and CI-gated code, a containerized
+FastAPI serving layer, a local Kubernetes (Minikube) deployment, and a
+Prometheus/Grafana monitoring stack.</p>
+<p>The final model — a tuned Random Forest, chosen over Logistic Regression on
+held-out ROC-AUC — is exported as a self-contained MLflow <code>sklearn.Pipeline</code>
+artifact (<code>models/final_model/</code>) bundling both preprocessing and the
+classifier, so there is a single versioned object with no train/serve skew
+risk.</p>
+<h2 id="2-architecture">2. Architecture</h2>
+<p><img alt="Architecture diagram" src="figures/architecture_diagram.png" /></p>
+<p>Data flows left to right, top to bottom: the raw dataset is fetched and
+cleaned, branching into an EDA report and a tuned/tracked training run that
+exports a packaged model. CI/CD validates every change (lint, tests, a fast
+training smoke-test, and a Docker build/run/health-check) before the same
+image is deployed to a local Kubernetes cluster, fronted by a Service, and
+observed via Prometheus/Grafana scraping the API's <code>/metrics</code> endpoint.</p>
+<h2 id="3-setup-install-instructions">3. Setup / Install Instructions</h2>
+<pre><code class="language-bash">git clone &lt;repo-url&gt; &amp;&amp; cd mlops-assignment-1
+python3 -m venv .venv &amp;&amp; source .venv/bin/activate
+pip install -r requirements-dev.txt      # training/dev/test extras on top of the base deps
+
+python data/download_data.py             # fetch raw UCI data -&gt; data/raw/
+python src/data/preprocess.py            # clean -&gt; data/processed/heart_clean.csv
+python src/eda.py                        # EDA plots -&gt; report/figures/
+python src/models/train.py               # train, tune, track in MLflow, export final model
+
+pytest -q                                # unit tests (18 tests)
+uvicorn api.main:app --reload            # local API on http://localhost:8000
+</code></pre>
+<p>Or, as a single command matching the assignment's "must execute from clean
+setup" requirement: <code>make setup</code> (see <code>Makefile</code>) runs venv creation,
+dependency install, data download/preprocessing, and training in sequence.</p>
+<p>Two requirement files are maintained deliberately separately and compiled
+together (<code>scripts/compile_requirements.sh</code>) so every package they share
+resolves to an <em>identical</em> pinned version in both:</p>
+<ul>
+<li><code>requirements.txt</code> — the minimal set the <strong>serving</strong> Docker image needs
+  (FastAPI, scikit-learn, <code>mlflow-skinny</code>, <code>skops</code>, ...).</li>
+<li><code>requirements-dev.txt</code> — adds full <code>mlflow</code> (for the local tracking
+  UI/SQLite backend), <code>pytest</code>, <code>ruff</code>, <code>black</code> — training/dev/test only,
+  never shipped in the container.</li>
+</ul>
+<h2 id="4-data-acquisition-eda">4. Data Acquisition &amp; EDA</h2>
+<p><strong>Source:</strong> UCI Machine Learning Repository, "Heart Disease" dataset
+(id=45, Cleveland subset), fetched programmatically via the <code>ucimlrepo</code>
+package in <code>data/download_data.py</code> — 303 rows, 13 features, and a 5-class
+target (<code>num</code>, 0 = no disease, 1–4 = increasing severity).</p>
+<p><strong>Cleaning (<code>src/data/preprocess.py</code>):</strong></p>
+<ul>
+<li><code>ca</code> and <code>thal</code> — two categorical columns — had 4 and 2 missing values
+  respectively (6 of 303 rows total, ~2%). These are dropped rather than
+  imputed: <code>ca</code> (number of vessels colored by fluoroscopy) and <code>thal</code>
+  (thalassemia type) are not values a reasonable statistic can safely
+  fabricate for a clinical categorical feature at this sample size.</li>
+<li>The 5-class <code>num</code> target is binarized to <code>target</code> (0 = no disease,
+  1 = any disease present), matching the assignment's binary classification
+  framing.</li>
+<li>Categorical columns are cast to <code>int</code>; the cleaned set has <strong>297 rows</strong>
+  with <strong>no missing values</strong>, saved to <code>data/processed/heart_clean.csv</code>
+  (committed to the repo for reproducibility, alongside the raw download
+  script).</li>
+</ul>
+<p><strong>Class balance:</strong> 160 "no disease" vs. 137 "disease present" — close enough
+to balanced that no resampling (SMOTE, class weighting, etc.) was applied.</p>
+<p><img alt="Class balance" src="figures/class_balance.png" /></p>
+<p><strong>Feature distributions by diagnosis</strong> show several features separating the
+two classes visibly even before modeling — most notably <code>thalach</code> (max heart
+rate achieved, lower in disease-present patients) and <code>oldpeak</code> (ST
+depression, higher in disease-present patients):</p>
+<p><img alt="Continuous feature histograms" src="figures/continuous_histograms.png" /></p>
+<p><img alt="Categorical feature counts" src="figures/categorical_counts.png" /></p>
+<p><strong>Correlation heatmap</strong> (continuous + categorical + target): <code>thal</code> (0.53),
+<code>ca</code> (0.46), <code>oldpeak</code> (0.42), <code>exang</code> (0.42), and <code>cp</code> (0.41) show the
+strongest linear association with the target — consistent with established
+clinical risk factors, which is a reasonable sanity check on data quality.</p>
+<p><img alt="Correlation heatmap" src="figures/correlation_heatmap.png" /></p>
+<h2 id="5-feature-engineering-model-development">5. Feature Engineering &amp; Model Development</h2>
+<p><strong>Feature engineering (<code>src/features/build_features.py</code>):</strong> a single
+<code>sklearn.ColumnTransformer</code>, reused identically by every model:</p>
+<ul>
+<li><strong>Continuous features</strong> (<code>age</code>, <code>trestbps</code>, <code>chol</code>, <code>thalach</code>, <code>oldpeak</code>)
+  — <code>StandardScaler</code>.</li>
+<li><strong>Categorical features</strong> (<code>sex</code>, <code>cp</code>, <code>fbs</code>, <code>restecg</code>, <code>exang</code>, <code>slope</code>,
+  <code>ca</code>, <code>thal</code>) — <code>OneHotEncoder(drop="if_binary", handle_unknown="ignore")</code>.
+  Binary features (<code>sex</code>, <code>fbs</code>, <code>exang</code>) collapse to a single 0/1 column;
+  multi-valued ones (<code>cp</code>, <code>thal</code>, ...) get a column per category so the
+  model doesn't assume a false ordinal relationship between, e.g., chest-pain
+  types. <code>handle_unknown="ignore"</code> means a category never seen at training
+  time (a rare <code>thal</code> code, say) is encoded as all-zeros at serving time
+  instead of crashing the API — covered explicitly in
+  <code>tests/test_features.py</code>.</li>
+</ul>
+<p><strong>Models (<code>src/models/train.py</code>):</strong> two classifiers, as suggested by the
+assignment, each wrapped in one <code>Pipeline([("preprocessor", ...),
+("classifier", ...)])</code> so preprocessing and model are always versioned and
+served together:</p>
+<ul>
+<li><strong>Logistic Regression</strong> — <code>C</code> swept over <code>[0.01, 0.1, 1.0, 10.0]</code>.</li>
+<li><strong>Random Forest</strong> — <code>n_estimators</code> over <code>[100, 200, 300]</code>, <code>max_depth</code>
+  over <code>[None, 5, 10]</code>, <code>min_samples_leaf</code> over <code>[1, 2, 4]</code> (27
+  combinations).</li>
+</ul>
+<p><strong>Tuning &amp; evaluation:</strong> <code>GridSearchCV</code> over <code>StratifiedKFold(n_splits=5,
+shuffle=True, random_state=42)</code>, scoring accuracy/precision/recall/F1/
+ROC-AUC simultaneously and refitting on ROC-AUC (the most informative single
+metric for a moderately-imbalanced binary clinical classifier — it's
+threshold-independent, unlike accuracy). An 80/20 stratified train/test split
+(<code>random_state=42</code>, fixed throughout for reproducibility) holds out data the
+grid search never sees, for an honest final comparison.</p>
+<p><strong>Results:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Best params</th>
+<th>CV ROC-AUC (mean)</th>
+<th>Test accuracy</th>
+<th>Test precision</th>
+<th>Test recall</th>
+<th>Test F1</th>
+<th>Test ROC-AUC</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Logistic Regression</td>
+<td><code>C=1.0</code></td>
+<td>0.902</td>
+<td>0.817</td>
+<td>0.870</td>
+<td>0.714</td>
+<td>0.784</td>
+<td><strong>0.938</strong></td>
+</tr>
+<tr>
+<td>Random Forest</td>
+<td><code>n_estimators=300, max_depth=None, min_samples_leaf=4</code></td>
+<td>0.906</td>
+<td><strong>0.850</strong></td>
+<td><strong>0.880</strong></td>
+<td>0.786</td>
+<td><strong>0.830</strong></td>
+<td><strong>0.943</strong></td>
+</tr>
+</tbody>
+</table>
+<p>Random Forest wins narrowly on every held-out metric and is exported as the
+final model. The gap is small enough that Logistic Regression remains a
+reasonable, more-interpretable fallback — noted here rather than discarded,
+since interpretability matters for a clinical-adjacent use case.</p>
+<p><img alt="Random Forest confusion matrix" src="figures/confusion_matrix_random_forest.png" />
+<img alt="Random Forest ROC curve" src="figures/roc_curve_random_forest.png" /></p>
+<p><code>train.py --fast</code> runs the same pipeline with a 1-combination grid and
+2-fold CV (~15s total for both models) — used only by CI as a smoke test
+that the training code path still runs end-to-end; the tuned numbers above
+come from the full run (<code>python src/models/train.py</code>, no flags).</p>
+<h2 id="6-experiment-tracking-mlflow">6. Experiment Tracking (MLflow)</h2>
+<p>Every <code>GridSearchCV</code> run is logged as one MLflow run under the
+<code>heart-disease-classification</code> experiment: best hyperparameters, mean/std of
+every CV metric, held-out test metrics, the confusion matrix and ROC curve
+plots as artifacts, and the fitted pipeline itself (<code>mlflow.sklearn.log_model</code>,
+with an inferred input/output signature and a real input example).</p>
+<p>Tracking backend is local SQLite (<code>mlflow.db</code>) rather than the plain
+filesystem store — MLflow 3.x has deprecated the filesystem backend — with
+artifacts (plots, model files) still stored locally under <code>mlruns/</code>.
+Inspect with:</p>
+<pre><code class="language-bash">mlflow ui --backend-store-uri sqlite:///mlflow.db
+</code></pre>
+<p><img alt="MLflow Training runs list" src="../screenshots/mlflow_experiment_runs.png" /></p>
+<p>Both runs are visible under the <code>heart-disease-classification</code> experiment
+with their source (<code>train.py</code>), duration, and linked model artifact. Opening
+a run shows all 15 logged metrics (5 CV mean/std pairs + 5 held-out test
+metrics) alongside its parameters and run metadata:</p>
+<p><img alt="MLflow run detail — random_forest" src="../screenshots/mlflow_run_detail.png" /></p>
+<p><code>report/metrics_summary.json</code> also captures a machine-readable summary of
+both runs (params, CV mean ROC-AUC, full test metrics) as a durable, diff-able
+record independent of the <code>mlruns/</code> directory (which is gitignored — it's
+bulky, pickled-per-run, and not meant to be shipped).</p>
+<h2 id="7-model-packaging-reproducibility">7. Model Packaging &amp; Reproducibility</h2>
+<p>The winning pipeline is exported via <code>mlflow.sklearn.save_model()</code> to
+<code>models/final_model/</code> — the <strong>only</strong> model artifact committed to the repo
+(7.5 MB). It contains:</p>
+<ul>
+<li><code>model.skops</code> — the serialized pipeline, in <a href="https://skops.readthedocs.io/">skops</a>
+  format rather than raw <code>pickle</code>. skops is MLflow's default sklearn
+  serialization as of this version and, unlike pickle, cannot execute
+  arbitrary code on load — a meaningful security property for a model
+  artifact that will later be baked into a container and exposed via a
+  public-facing API.</li>
+<li><code>MLmodel</code>, <code>conda.yaml</code>, <code>python_env.yaml</code>, <code>requirements.txt</code> — MLflow's
+  standard metadata for reproducing the exact training environment.</li>
+<li><code>input_example.json</code> / <code>serving_input_example.json</code> — a real sample row,
+  useful for smoke-testing the loaded model.</li>
+</ul>
+<p><strong>Reproducibility was verified directly, not assumed:</strong> a throwaway venv was
+built from <em>only</em> <code>requirements.txt</code> (no dev/training extras) and used to
+load <code>models/final_model/</code> and predict on real held-out rows — matching the
+true ground-truth labels. This surfaced and fixed a real gap: <code>skops</code> was
+initially only pulled in transitively via the dev requirements, so a clean
+serving-only install couldn't deserialize the model at all until <code>skops</code> was
+added to <code>requirements.in</code> directly (see <code>src/models/predict.py</code> and the
+commit history for the fix). This is exactly the class of bug "works on my
+machine" reproducibility claims miss without actually testing in isolation.</p>
+<h2 id="8-cicd-pipeline-automated-testing">8. CI/CD Pipeline &amp; Automated Testing</h2>
+<p><strong>Unit tests</strong> (<code>tests/</code>, 18 tests, <code>pytest -q</code>): <code>test_data.py</code> targets the
+dataset's one real data-quality issue (missing <code>ca</code>/<code>thal</code>) with synthetic
+rows constructed specifically to exercise it, plus target binarization and
+dtype casting. <code>test_features.py</code> verifies the <code>ColumnTransformer</code> produces
+no NaNs, correctly standardizes continuous features (mean≈0, std≈1), and
+doesn't raise on an unseen category. <code>test_model.py</code> covers metric
+computation and a full preprocessor+classifier fit/predict_proba smoke test.
+<code>test_api.py</code> drives the real FastAPI app (via <code>TestClient</code>, lifespan
+included, so the actual packaged model loads) through <code>/health</code>, <code>/predict</code>
+(valid input, out-of-range input, missing field), and <code>/metrics</code>.</p>
+<p><strong><code>.github/workflows/ci.yml</code></strong> — three jobs, each failing loudly on any
+error (no <code>--no-verify</code>-style bypasses, <code>curl -f</code> rather than bare <code>curl</code> so
+a broken health check actually fails the job):</p>
+<ol>
+<li><strong>lint</strong> — <code>ruff check .</code> + <code>black --check .</code>.</li>
+<li><strong>test</strong> (needs lint) — downloads the dataset, preprocesses, runs EDA,
+   trains with <code>--fast</code>, then <code>pytest</code> with coverage; uploads test results,
+   EDA figures, and the fast-trained model as workflow artifacts.</li>
+<li><strong>docker</strong> (needs test) — downloads the model artifact from the test job,
+   <code>docker build</code>s the image, runs it, polls <code>/health</code> until it passes (or
+   fails the job after 30s), then POSTs <code>sample_input.json</code> to <code>/predict</code>
+   and asserts a valid response — the literal "Docker container build/test
+   proof" the assignment asks for, run automatically on every push.</li>
+</ol>
+<p>Every command each job runs was validated locally end-to-end (lint,
+<code>pytest --cov</code>, <code>train.py --fast</code>, and the exact <code>docker build</code> /
+<code>docker run</code> / health-poll-loop / <code>/predict</code> smoke test used in the
+<code>docker</code> job — see Sections 9 and the docker job's steps above). Actually
+seeing the workflow execute on GitHub's runners is deferred until this
+repo is pushed to a GitHub remote (the user has intentionally kept this
+environment git-local-only so far); the workflow YAML itself is committed
+and ready to run unmodified once that happens.</p>
+<h2 id="9-model-containerization">9. Model Containerization</h2>
+<p><code>Dockerfile</code> — multi-stage build: a <code>builder</code> stage installs
+<code>requirements.txt</code> into <code>/root/.local</code>, and the final stage (also
+<code>python:3.12-slim</code>) copies just that installed environment plus <code>api/</code>,
+<code>src/</code>, and <code>models/final_model/</code> — no data, notebooks, tests, or dev
+tooling ship in the image. Runs as a non-root user (<code>appuser</code>, uid 1000),
+exposes port 8000, and defines a <code>HEALTHCHECK</code> against <code>/health</code>.</p>
+<pre><code class="language-bash">docker build -t heart-disease-api .
+docker run -p 8000:8000 heart-disease-api
+curl -X POST http://localhost:8000/predict -H &quot;Content-Type: application/json&quot; -d @sample_input.json
+</code></pre>
+<p><strong>Verified locally</strong> (full transcript in <code>screenshots/docker_build_run_log.txt</code>):
+the image builds, the container reaches Docker's own <code>HEALTHCHECK</code> status
+<code>healthy</code>, <code>/health</code> and <code>/predict</code> both respond correctly through the
+container's published port (the same prediction as the earlier bare-metal
+test — <code>{"prediction":0,"label":"No disease","confidence":0.6390}</code> — confirming
+no drift between the dev environment and the containerized one), and
+<code>docker exec ... id</code> confirms the process runs as <code>appuser</code> (uid 1000), not
+root. Final image size: 219 MB (content) / 981 MB reported disk usage
+(shared base-image layers counted in full by <code>docker images</code> for a
+single-image view).</p>
+<h2 id="10-production-deployment-kubernetes-minikube">10. Production Deployment (Kubernetes / Minikube)</h2>
+<p><code>k8s/deployment.yaml</code> — 2 replicas, <code>imagePullPolicy: Never</code> (the image is
+loaded directly via <code>minikube image load</code>, no registry involved),
+liveness/readiness probes against <code>/health</code>, and explicit CPU/memory
+requests+limits. <code>k8s/service.yaml</code> exposes it as a <code>LoadBalancer</code>;
+<code>k8s/ingress.yaml</code> is documented as a <code>sudo</code>-tunnel-free alternative. Full
+commands in <code>k8s/README.md</code>:</p>
+<pre><code class="language-bash">minikube start --driver=docker --cpus=4 --memory=8192
+docker build -t heart-disease-api:latest .
+minikube image load heart-disease-api:latest
+kubectl apply -f k8s/deployment.yaml -f k8s/service.yaml
+minikube tunnel   # separate terminal — populates the LoadBalancer's EXTERNAL-IP
+kubectl get svc heart-disease-api
+curl http://&lt;EXTERNAL-IP&gt;/health
+</code></pre>
+<p><strong>Verified locally</strong> (full transcript in <code>screenshots/minikube_deployment_log.txt</code>):
+<code>minikube start --driver=docker --cpus=4 --memory=8192</code> came up with the
+node <code>Ready</code>; the image was loaded via <code>minikube image load</code>; both
+Deployment replicas reached <code>2/2 READY</code>/<code>AVAILABLE</code>. The <code>Service</code>
+(<code>LoadBalancer</code>) correctly shows <code>EXTERNAL-IP: &lt;pending&gt;</code> — as expected,
+since <code>minikube</code>'s docker driver only populates that via <code>minikube tunnel</code>,
+which needs <code>sudo</code> (not available non-interactively in this environment).
+Rather than leave the deployment unverified, the documented Ingress
+alternative was used instead: <code>minikube addons enable ingress</code> +
+<code>kubectl apply -f k8s/ingress.yaml</code> brought up <code>ingress-nginx</code>, and
+<code>curl --resolve heart-api.local:80:$(minikube ip) http://heart-api.local/...</code>
+against both <code>/health</code> and <code>/predict</code> returned correct responses — the same
+prediction as the bare-metal and Docker checks, now served from inside a
+2-replica Kubernetes deployment with working liveness/readiness probes.
+<code>minikube tunnel</code> remains documented in <code>k8s/README.md</code> as the
+<code>LoadBalancer</code>-native path for anyone running this outside a sandboxed
+session.</p>
+<h2 id="11-monitoring-logging">11. Monitoring &amp; Logging</h2>
+<p>The API logs every request (method, path, status code, latency) via a
+FastAPI middleware, and every prediction (class + confidence — never the
+raw patient features, to avoid dumping clinical-shaped data into logs) —
+both to stdout, which is where a container orchestrator expects them.</p>
+<p><code>/metrics</code> exposes Prometheus counters/histograms: <code>http_requests_total</code>
+(by method/path/status), <code>http_request_duration_seconds</code> (a latency
+histogram, by method/path), and <code>predictions_total</code> (by predicted class).
+<code>docker-compose.yml</code> stands up the API alongside Prometheus (scraping
+<code>/metrics</code> every 5s) and Grafana (provisioned with a datasource and a
+4-panel dashboard: request rate, p95 latency, predictions by class, status
+codes) with zero manual clicking required:</p>
+<pre><code class="language-bash">docker compose up
+python scripts/generate_load.py --n 200   # populate the dashboard with real traffic
+</code></pre>
+<p><strong>Verified locally</strong> (full transcript in <code>screenshots/monitoring_stack_log.txt</code>):
+<code>docker compose up</code> brought up all three containers, the API reaching
+Docker's <code>healthy</code> status before Prometheus/Grafana even started (compose's
+<code>depends_on: condition: service_healthy</code>). Prometheus's own target-health
+API confirms the scrape target is <code>up</code> and being polled every 5s.
+<code>scripts/generate_load.py --n 150</code> fired 150 randomized <code>/predict</code> requests
+(150/150 succeeded), and the dashboard's own panel queries against
+Prometheus return real, non-empty data (116 vs. 34 predictions split
+between classes, matching the load script's random distribution; non-zero
+request rates for <code>/health</code>, <code>/metrics</code>, <code>/predict</code>).</p>
+<p><img alt="Grafana dashboard with live traffic" src="../screenshots/grafana_dashboard.png" /></p>
+<p>The screenshot above is a real capture of the live dashboard (via a
+headless-Chromium container, since installing a browser directly in this
+sandboxed environment would have needed <code>sudo</code>) — note the request-rate
+spike from the load-generation burst, the 34/116 prediction split, and the
+HTTP 200 status-code timeseries, all sourced from the same <code>/metrics</code>
+counters <code>api/main.py</code> increments per request.</p>
+<h2 id="12-conclusion">12. Conclusion</h2>
+<p>The pipeline covers the full assignment scope end-to-end, and every stage
+was actually run and verified rather than assumed — not just files that look
+right: EDA and model training execute from a clean venv; two
+cross-validated, MLflow-tracked models produced a packaged artifact that
+was proven portable by loading it in a throwaway serving-only venv (which
+caught and fixed a real missing-dependency bug); 18 unit/API tests pass;
+the Docker image builds, runs, and passes its own <code>HEALTHCHECK</code> as a
+non-root user; the same image deploys cleanly to a 2-replica Minikube
+deployment reachable via Ingress; and the Prometheus/Grafana stack shows
+a live dashboard populated by real generated traffic.</p>
+<p>The one piece intentionally left outstanding is pushing this repository to
+a GitHub remote and watching <code>ci.yml</code> execute on GitHub's own runners —
+deferred by choice (this environment was kept git-local-only throughout),
+not by necessity: every command each CI job runs was independently
+validated locally against the same commands the workflow file uses, so
+there's no reason to expect the hosted run to behave differently.</p>
+<h2 id="appendix-verification-artifacts">Appendix: Verification Artifacts</h2>
+<p>Every claim above that isn't visible in the report's own figures is backed
+by a transcript in <code>screenshots/</code>:</p>
+<ul>
+<li><code>docker_build_run_log.txt</code> — Docker build, run, health-check, non-root check.</li>
+<li><code>minikube_deployment_log.txt</code> — cluster start, image load, rollout,
+  Ingress setup, live <code>/health</code> and <code>/predict</code> responses.</li>
+<li><code>monitoring_stack_log.txt</code> — compose stack health, Prometheus target
+  status, dashboard panel query results.</li>
+<li><code>grafana_dashboard.png</code> — live screenshot of the populated dashboard.</li>
+</ul>
+<h2 id="appendix-repository-layout">Appendix: Repository Layout</h2>
+<p>See <code>README.md</code> in the repository root for the full directory layout and a
+condensed quickstart; this report focuses on decisions and results rather
+than restating file paths already documented there.</p>
+<h2 id="appendix-repository-layout_1">Appendix: Repository Layout</h2>
+<p>See <code>README.md</code> in the repository root for the full directory layout and a
+condensed quickstart; this report focuses on decisions and results rather
+than restating file paths already documented there.</p>
+</body>
+</html>

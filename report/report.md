@@ -1,9 +1,13 @@
 # Heart Disease Risk Classifier — End-to-End MLOps Pipeline
 
 **Course:** AIMLCZG523 — Machine Learning Operations (MLOps), Assignment 01
+
 **Author:** Muthukrishnan Ram
+
 **Repository:** _TODO: add GitHub URL once pushed_
+
 **Deployed API (local Minikube):**
+
 ```bash
 minikube start --driver=docker --cpus=4 --memory=8192
 docker build -t heart-disease-api:latest .

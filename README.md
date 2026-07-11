@@ -71,6 +71,7 @@ the API's `/metrics` endpoint.
 
 ## Report
 
-The full written report is at `report/report.md` (also exported as PDF), covering
+The full written report is at `report/report.md`, exported as `report/report.pdf`
+(regenerate with `./scripts/build_report_pdf.sh`, needs Docker running), covering
 setup, EDA/modelling choices, experiment tracking, architecture, and CI/CD &
-deployment evidence.
+deployment evidence with real screenshots in `screenshots/`.
