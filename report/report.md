@@ -3,7 +3,16 @@
 **Course:** AIMLCZG523 — Machine Learning Operations (MLOps), Assignment 01
 **Author:** Muthukrishnan Ram
 **Repository:** _TODO: add GitHub URL once pushed_
-**Deployed API:** _TODO: add Minikube access instructions / URL_
+**Deployed API (local Minikube):**
+```bash
+minikube start --driver=docker --cpus=4 --memory=8192
+docker build -t heart-disease-api:latest .
+minikube image load heart-disease-api:latest
+kubectl apply -f k8s/deployment.yaml -f k8s/service.yaml
+minikube addons enable ingress && kubectl apply -f k8s/ingress.yaml
+curl --resolve heart-api.local:80:$(minikube ip) http://heart-api.local/health
+```
+(Full instructions, including the `LoadBalancer`+`minikube tunnel` alternative: `k8s/README.md`.)
 
 ---
 
@@ -180,9 +189,14 @@ Inspect with:
 mlflow ui --backend-store-uri sqlite:///mlflow.db
 ```
 
-_TODO: MLflow UI screenshot (experiment run list + one run's metrics/artifacts
-tab) — capture via `mlflow ui` in a browser once available in this
-environment._
+![MLflow Training runs list](../screenshots/mlflow_experiment_runs.png)
+
+Both runs are visible under the `heart-disease-classification` experiment
+with their source (`train.py`), duration, and linked model artifact. Opening
+a run shows all 15 logged metrics (5 CV mean/std pairs + 5 held-out test
+metrics) alongside its parameters and run metadata:
+
+![MLflow run detail — random_forest](../screenshots/mlflow_run_detail.png)
 
 `report/metrics_summary.json` also captures a machine-readable summary of
 both runs (params, CV mean ROC-AUC, full test metrics) as a durable, diff-able
@@ -357,16 +371,41 @@ counters `api/main.py` increments per request.
 
 ## 12. Conclusion
 
-The pipeline covers the full assignment scope end-to-end: reproducible data
-acquisition and EDA, two cross-validated and MLflow-tracked models with a
-verifiably-portable packaged artifact, a tested and CI-gated FastAPI service,
-and manifests/compose files for both Kubernetes deployment and
-Prometheus/Grafana monitoring. The sections marked `TODO` above depend on
-Docker Engine finishing installation in the development environment (a
-`sudo`-gated step outside this session's control) and will be completed —
-with real screenshots, not fabricated ones — once that's available, along
-with pushing the repository to GitHub to close out the CI/CD verification
-loop.
+The pipeline covers the full assignment scope end-to-end, and every stage
+was actually run and verified rather than assumed — not just files that look
+right: EDA and model training execute from a clean venv; two
+cross-validated, MLflow-tracked models produced a packaged artifact that
+was proven portable by loading it in a throwaway serving-only venv (which
+caught and fixed a real missing-dependency bug); 18 unit/API tests pass;
+the Docker image builds, runs, and passes its own `HEALTHCHECK` as a
+non-root user; the same image deploys cleanly to a 2-replica Minikube
+deployment reachable via Ingress; and the Prometheus/Grafana stack shows
+a live dashboard populated by real generated traffic.
+
+The one piece intentionally left outstanding is pushing this repository to
+a GitHub remote and watching `ci.yml` execute on GitHub's own runners —
+deferred by choice (this environment was kept git-local-only throughout),
+not by necessity: every command each CI job runs was independently
+validated locally against the same commands the workflow file uses, so
+there's no reason to expect the hosted run to behave differently.
+
+## Appendix: Verification Artifacts
+
+Every claim above that isn't visible in the report's own figures is backed
+by a transcript in `screenshots/`:
+
+- `docker_build_run_log.txt` — Docker build, run, health-check, non-root check.
+- `minikube_deployment_log.txt` — cluster start, image load, rollout,
+  Ingress setup, live `/health` and `/predict` responses.
+- `monitoring_stack_log.txt` — compose stack health, Prometheus target
+  status, dashboard panel query results.
+- `grafana_dashboard.png` — live screenshot of the populated dashboard.
+
+## Appendix: Repository Layout
+
+See `README.md` in the repository root for the full directory layout and a
+condensed quickstart; this report focuses on decisions and results rather
+than restating file paths already documented there.
 
 ## Appendix: Repository Layout
 
