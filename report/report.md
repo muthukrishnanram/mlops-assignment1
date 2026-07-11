@@ -306,6 +306,14 @@ computation and a full preprocessor+classifier fit/predict_proba smoke test.
 included, so the actual packaged model loads) through `/health`, `/predict`
 (valid input, out-of-range input, missing field), and `/metrics`.
 
+**Manual API testing** beyond `pytest`: `curl` (used throughout every
+verification in this report), and FastAPI's auto-generated Swagger UI at
+`/docs`, confirmed live (not just assumed from the framework default) —
+`/docs` returns 200 and `/openapi.json` correctly enumerates all three
+endpoints and their `PatientFeatures`/`PredictionResponse` schemas:
+
+![Swagger UI](../screenshots/swagger_ui.png)
+
 **`.github/workflows/ci.yml`** — three jobs, each failing loudly on any
 error (no `--no-verify`-style bypasses, `curl -f` rather than bare `curl` so
 a broken health check actually fails the job):
@@ -471,12 +479,6 @@ by a transcript in `screenshots/`:
 - `monitoring_stack_log.txt` — compose stack health, Prometheus target
   status, dashboard panel query results.
 - `grafana_dashboard.png` — live screenshot of the populated dashboard.
-
-## Appendix: Repository Layout
-
-See `README.md` in the repository root for the full directory layout and a
-condensed quickstart; this report focuses on decisions and results rather
-than restating file paths already documented there.
 
 ## Appendix: Repository Layout
 

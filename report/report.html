@@ -321,6 +321,12 @@ computation and a full preprocessor+classifier fit/predict_proba smoke test.
 <code>test_api.py</code> drives the real FastAPI app (via <code>TestClient</code>, lifespan
 included, so the actual packaged model loads) through <code>/health</code>, <code>/predict</code>
 (valid input, out-of-range input, missing field), and <code>/metrics</code>.</p>
+<p><strong>Manual API testing</strong> beyond <code>pytest</code>: <code>curl</code> (used throughout every
+verification in this report), and FastAPI's auto-generated Swagger UI at
+<code>/docs</code>, confirmed live (not just assumed from the framework default) —
+<code>/docs</code> returns 200 and <code>/openapi.json</code> correctly enumerates all three
+endpoints and their <code>PatientFeatures</code>/<code>PredictionResponse</code> schemas:</p>
+<p><img alt="Swagger UI" src="../screenshots/swagger_ui.png" /></p>
 <p><strong><code>.github/workflows/ci.yml</code></strong> — three jobs, each failing loudly on any
 error (no <code>--no-verify</code>-style bypasses, <code>curl -f</code> rather than bare <code>curl</code> so
 a broken health check actually fails the job):</p>
@@ -464,10 +470,6 @@ by a transcript in <code>screenshots/</code>:</p>
 <li><code>grafana_dashboard.png</code> — live screenshot of the populated dashboard.</li>
 </ul>
 <h2 id="appendix-repository-layout">Appendix: Repository Layout</h2>
-<p>See <code>README.md</code> in the repository root for the full directory layout and a
-condensed quickstart; this report focuses on decisions and results rather
-than restating file paths already documented there.</p>
-<h2 id="appendix-repository-layout_1">Appendix: Repository Layout</h2>
 <p>See <code>README.md</code> in the repository root for the full directory layout and a
 condensed quickstart; this report focuses on decisions and results rather
 than restating file paths already documented there.</p>
