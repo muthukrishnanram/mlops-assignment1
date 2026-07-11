@@ -127,6 +127,16 @@ clinical risk factors, which is a reasonable sanity check on data quality.
 
 ![Correlation heatmap](figures/correlation_heatmap.png)
 
+**Feature relationship analysis** — a pairplot of the continuous features
+(pairwise scatter, diagonal KDE) complements the heatmap's numeric summary
+with the actual pairwise shapes: `thalach` visibly shifts lower and
+`oldpeak` higher for disease-present patients across nearly every pairing,
+and no pair of continuous features shows strong enough collinearity to
+warrant dropping one (confirming the heatmap's off-diagonal values, all
+well under 0.6 among the continuous features themselves).
+
+![Feature relationships pairplot](figures/feature_relationships.png)
+
 ## 5. Feature Engineering & Model Development
 
 **Feature engineering (`src/features/build_features.py`):** a single

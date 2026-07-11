@@ -132,6 +132,30 @@ def plot_correlation_heatmap(df: pd.DataFrame, out_dir: Path) -> None:
     plt.close(fig)
 
 
+def plot_feature_relationships(df: pd.DataFrame, out_dir: Path) -> None:
+    """Pairwise scatter relationships between continuous features (diagonal:
+    per-feature KDE), colored by diagnosis — complements the correlation
+    heatmap's numeric summary with the actual pairwise shapes."""
+    plot_df = df[CONTINUOUS_FEATURES + [TARGET_COL]].copy()
+    plot_df["Diagnosis"] = plot_df[TARGET_COL].map(TARGET_LABELS)
+    plot_df = plot_df.drop(columns=[TARGET_COL])
+
+    grid = sns.pairplot(
+        plot_df,
+        hue="Diagnosis",
+        hue_order=HUE_ORDER,
+        palette=HUE_PALETTE,
+        diag_kind="kde",
+        plot_kws={"alpha": 0.6, "s": 25},
+        height=2.2,
+    )
+    grid.figure.suptitle(
+        "Feature Relationships: Continuous Features by Diagnosis", y=1.02, fontsize=14
+    )
+    grid.savefig(out_dir / "feature_relationships.png", dpi=150)
+    plt.close(grid.figure)
+
+
 def main() -> None:
     if not RAW_DATA_PATH.exists():
         raise FileNotFoundError(f"{RAW_DATA_PATH} not found — run data/download_data.py first")
@@ -149,6 +173,7 @@ def main() -> None:
     plot_continuous_histograms(df, FIGURES_DIR)
     plot_categorical_counts(df, FIGURES_DIR)
     plot_correlation_heatmap(df, FIGURES_DIR)
+    plot_feature_relationships(df, FIGURES_DIR)
 
     logger.info("Wrote EDA figures to %s", FIGURES_DIR)
 

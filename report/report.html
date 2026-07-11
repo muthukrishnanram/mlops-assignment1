@@ -126,6 +126,14 @@ depression, higher in disease-present patients):</p>
 strongest linear association with the target — consistent with established
 clinical risk factors, which is a reasonable sanity check on data quality.</p>
 <p><img alt="Correlation heatmap" src="figures/correlation_heatmap.png" /></p>
+<p><strong>Feature relationship analysis</strong> — a pairplot of the continuous features
+(pairwise scatter, diagonal KDE) complements the heatmap's numeric summary
+with the actual pairwise shapes: <code>thalach</code> visibly shifts lower and
+<code>oldpeak</code> higher for disease-present patients across nearly every pairing,
+and no pair of continuous features shows strong enough collinearity to
+warrant dropping one (confirming the heatmap's off-diagonal values, all
+well under 0.6 among the continuous features themselves).</p>
+<p><img alt="Feature relationships pairplot" src="figures/feature_relationships.png" /></p>
 <h2 id="5-feature-engineering-model-development">5. Feature Engineering &amp; Model Development</h2>
 <p><strong>Feature engineering (<code>src/features/build_features.py</code>):</strong> a single
 <code>sklearn.ColumnTransformer</code>, reused identically by every model:</p>
