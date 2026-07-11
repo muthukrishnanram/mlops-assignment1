@@ -29,7 +29,7 @@ blockquote { border-left: 3px solid #ccc; margin: 10px 0; padding: 4px 14px; col
 <h1 id="heart-disease-risk-classifier-end-to-end-mlops-pipeline">Heart Disease Risk Classifier — End-to-End MLOps Pipeline</h1>
 <p><strong>Course:</strong> AIMLCZG523 — Machine Learning Operations (MLOps), Assignment 01</p>
 <p><strong>Author:</strong> Muthukrishnan Ram</p>
-<p><strong>Repository:</strong> <em>TODO: add GitHub URL once pushed</em></p>
+<p><strong>Repository:</strong> https://github.com/muthukrishnanram/mlops-assignment1</p>
 <p><strong>Deployed API (local Minikube):</strong></p>
 <pre><code class="language-bash">minikube start --driver=docker --cpus=4 --memory=8192
 docker build -t heart-disease-api:latest .
@@ -344,11 +344,13 @@ a broken health check actually fails the job):</p>
 <p>Every command each job runs was validated locally end-to-end (lint,
 <code>pytest --cov</code>, <code>train.py --fast</code>, and the exact <code>docker build</code> /
 <code>docker run</code> / health-poll-loop / <code>/predict</code> smoke test used in the
-<code>docker</code> job — see Sections 9 and the docker job's steps above). Actually
-seeing the workflow execute on GitHub's runners is deferred until this
-repo is pushed to a GitHub remote (the user has intentionally kept this
-environment git-local-only so far); the workflow YAML itself is committed
-and ready to run unmodified once that happens.</p>
+<code>docker</code> job — see Sections 9 and the docker job's steps above). The repo
+is now pushed to GitHub (private), which should have triggered the
+workflow automatically via its <code>on: push: branches: [main]</code> trigger — but
+this repo is private and this session has no GitHub API credentials to
+query the Actions tab programmatically, so that hosted run is confirmed
+by commit history, not independently verified here the way every other
+milestone in this report was. Check the Actions tab directly to confirm.</p>
 <h2 id="9-model-containerization">9. Model Containerization</h2>
 <p><code>Dockerfile</code> — multi-stage build: a <code>builder</code> stage installs
 <code>requirements.txt</code> into <code>/root/.local</code>, and the final stage (also
@@ -444,20 +446,24 @@ counters <code>api/main.py</code> increments per request.</p>
 <h2 id="12-conclusion">12. Conclusion</h2>
 <p>The pipeline covers the full assignment scope end-to-end, and every stage
 was actually run and verified rather than assumed — not just files that look
-right: EDA and model training execute from a clean venv; two
-cross-validated, MLflow-tracked models produced a packaged artifact that
-was proven portable by loading it in a throwaway serving-only venv (which
-caught and fixed a real missing-dependency bug); 18 unit/API tests pass;
-the Docker image builds, runs, and passes its own <code>HEALTHCHECK</code> as a
-non-root user; the same image deploys cleanly to a 2-replica Minikube
-deployment reachable via Ingress; and the Prometheus/Grafana stack shows
-a live dashboard populated by real generated traffic.</p>
-<p>The one piece intentionally left outstanding is pushing this repository to
-a GitHub remote and watching <code>ci.yml</code> execute on GitHub's own runners —
-deferred by choice (this environment was kept git-local-only throughout),
-not by necessity: every command each CI job runs was independently
-validated locally against the same commands the workflow file uses, so
-there's no reason to expect the hosted run to behave differently.</p>
+right: EDA and model training execute from a clean venv; three
+cross-validated, MLflow-tracked models (registered in the Model Registry)
+produced a packaged artifact that was proven portable by loading it in a
+throwaway serving-only venv (which caught and fixed two real bugs — a
+missing dependency and an untrusted-type serialization error); 18
+unit/API tests pass; the Docker image builds, runs, and passes its own
+<code>HEALTHCHECK</code> as a non-root user; the same image deploys cleanly to a
+2-replica Minikube deployment reachable via Ingress; and the
+Prometheus/Grafana stack shows a live dashboard populated by real
+generated traffic.</p>
+<p>The repository is pushed to GitHub (private) at
+https://github.com/muthukrishnanram/mlops-assignment1, which should have
+triggered <code>ci.yml</code> automatically. Every command each CI job runs was
+independently validated locally against the same commands the workflow
+file uses, so there's no reason to expect the hosted run to behave
+differently — but confirming that is a matter of checking the Actions
+tab directly, which this session has no credentials to do
+programmatically against a private repo.</p>
 <h2 id="appendix-verification-artifacts">Appendix: Verification Artifacts</h2>
 <p>Every claim above that isn't visible in the report's own figures is backed
 by a transcript in <code>screenshots/</code>:</p>

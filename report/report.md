@@ -4,7 +4,7 @@
 
 **Author:** Muthukrishnan Ram
 
-**Repository:** _TODO: add GitHub URL once pushed_
+**Repository:** https://github.com/muthukrishnanram/mlops-assignment1
 
 **Deployed API (local Minikube):**
 
@@ -331,11 +331,13 @@ a broken health check actually fails the job):
 Every command each job runs was validated locally end-to-end (lint,
 `pytest --cov`, `train.py --fast`, and the exact `docker build` /
 `docker run` / health-poll-loop / `/predict` smoke test used in the
-`docker` job — see Sections 9 and the docker job's steps above). Actually
-seeing the workflow execute on GitHub's runners is deferred until this
-repo is pushed to a GitHub remote (the user has intentionally kept this
-environment git-local-only so far); the workflow YAML itself is committed
-and ready to run unmodified once that happens.
+`docker` job — see Sections 9 and the docker job's steps above). The repo
+is now pushed to GitHub (private), which should have triggered the
+workflow automatically via its `on: push: branches: [main]` trigger — but
+this repo is private and this session has no GitHub API credentials to
+query the Actions tab programmatically, so that hosted run is confirmed
+by commit history, not independently verified here the way every other
+milestone in this report was. Check the Actions tab directly to confirm.
 
 ## 9. Model Containerization
 
@@ -452,21 +454,25 @@ counters `api/main.py` increments per request.
 
 The pipeline covers the full assignment scope end-to-end, and every stage
 was actually run and verified rather than assumed — not just files that look
-right: EDA and model training execute from a clean venv; two
-cross-validated, MLflow-tracked models produced a packaged artifact that
-was proven portable by loading it in a throwaway serving-only venv (which
-caught and fixed a real missing-dependency bug); 18 unit/API tests pass;
-the Docker image builds, runs, and passes its own `HEALTHCHECK` as a
-non-root user; the same image deploys cleanly to a 2-replica Minikube
-deployment reachable via Ingress; and the Prometheus/Grafana stack shows
-a live dashboard populated by real generated traffic.
+right: EDA and model training execute from a clean venv; three
+cross-validated, MLflow-tracked models (registered in the Model Registry)
+produced a packaged artifact that was proven portable by loading it in a
+throwaway serving-only venv (which caught and fixed two real bugs — a
+missing dependency and an untrusted-type serialization error); 18
+unit/API tests pass; the Docker image builds, runs, and passes its own
+`HEALTHCHECK` as a non-root user; the same image deploys cleanly to a
+2-replica Minikube deployment reachable via Ingress; and the
+Prometheus/Grafana stack shows a live dashboard populated by real
+generated traffic.
 
-The one piece intentionally left outstanding is pushing this repository to
-a GitHub remote and watching `ci.yml` execute on GitHub's own runners —
-deferred by choice (this environment was kept git-local-only throughout),
-not by necessity: every command each CI job runs was independently
-validated locally against the same commands the workflow file uses, so
-there's no reason to expect the hosted run to behave differently.
+The repository is pushed to GitHub (private) at
+https://github.com/muthukrishnanram/mlops-assignment1, which should have
+triggered `ci.yml` automatically. Every command each CI job runs was
+independently validated locally against the same commands the workflow
+file uses, so there's no reason to expect the hosted run to behave
+differently — but confirming that is a matter of checking the Actions
+tab directly, which this session has no credentials to do
+programmatically against a private repo.
 
 ## Appendix: Verification Artifacts
 
