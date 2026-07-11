@@ -341,16 +341,19 @@ a broken health check actually fails the job):</p>
    and asserts a valid response — the literal "Docker container build/test
    proof" the assignment asks for, run automatically on every push.</li>
 </ol>
-<p>Every command each job runs was validated locally end-to-end (lint,
+<p>Every command each job runs was validated locally end-to-end first (lint,
 <code>pytest --cov</code>, <code>train.py --fast</code>, and the exact <code>docker build</code> /
 <code>docker run</code> / health-poll-loop / <code>/predict</code> smoke test used in the
-<code>docker</code> job — see Sections 9 and the docker job's steps above). The repo
-is now pushed to GitHub (private), which should have triggered the
-workflow automatically via its <code>on: push: branches: [main]</code> trigger — but
-this repo is private and this session has no GitHub API credentials to
-query the Actions tab programmatically, so that hosted run is confirmed
-by commit history, not independently verified here the way every other
-milestone in this report was. Check the Actions tab directly to confirm.</p>
+<code>docker</code> job), then confirmed on GitHub's own runners after pushing: two
+pushes, two green runs, all three jobs passing both times —
+<a href="https://github.com/muthukrishnanram/mlops-assignment1/actions/runs/29165882386">run #1</a>
+and
+<a href="https://github.com/muthukrishnanram/mlops-assignment1/actions/runs/29166031866">run #2</a>,
+queried directly via the GitHub API (<code>lint</code>: success, <code>test</code>: success,
+<code>docker</code>: success, on both). Nothing environment-specific broke between
+local validation and the hosted runner.</p>
+<p><img alt="GitHub Actions runs" src="../screenshots/github_actions_runs.png" />
+<img alt="GitHub Actions run detail — lint, test, docker all green" src="../screenshots/github_actions_run_detail.png" /></p>
 <h2 id="9-model-containerization">9. Model Containerization</h2>
 <p><code>Dockerfile</code> — multi-stage build: a <code>builder</code> stage installs
 <code>requirements.txt</code> into <code>/root/.local</code>, and the final stage (also
@@ -456,14 +459,12 @@ unit/API tests pass; the Docker image builds, runs, and passes its own
 2-replica Minikube deployment reachable via Ingress; and the
 Prometheus/Grafana stack shows a live dashboard populated by real
 generated traffic.</p>
-<p>The repository is pushed to GitHub (private) at
-https://github.com/muthukrishnanram/mlops-assignment1, which should have
-triggered <code>ci.yml</code> automatically. Every command each CI job runs was
-independently validated locally against the same commands the workflow
-file uses, so there's no reason to expect the hosted run to behave
-differently — but confirming that is a matter of checking the Actions
-tab directly, which this session has no credentials to do
-programmatically against a private repo.</p>
+<p>The repository is public at
+https://github.com/muthukrishnanram/mlops-assignment1. <code>ci.yml</code> has run
+twice on GitHub's own runners so far, both green across all three jobs —
+the last outstanding "should work" in this report is now a confirmed
+"did work," closing the loop between local validation and the actual
+hosted pipeline.</p>
 <h2 id="appendix-verification-artifacts">Appendix: Verification Artifacts</h2>
 <p>Every claim above that isn't visible in the report's own figures is backed
 by a transcript in <code>screenshots/</code>:</p>

@@ -328,16 +328,20 @@ a broken health check actually fails the job):
    and asserts a valid response — the literal "Docker container build/test
    proof" the assignment asks for, run automatically on every push.
 
-Every command each job runs was validated locally end-to-end (lint,
+Every command each job runs was validated locally end-to-end first (lint,
 `pytest --cov`, `train.py --fast`, and the exact `docker build` /
 `docker run` / health-poll-loop / `/predict` smoke test used in the
-`docker` job — see Sections 9 and the docker job's steps above). The repo
-is now pushed to GitHub (private), which should have triggered the
-workflow automatically via its `on: push: branches: [main]` trigger — but
-this repo is private and this session has no GitHub API credentials to
-query the Actions tab programmatically, so that hosted run is confirmed
-by commit history, not independently verified here the way every other
-milestone in this report was. Check the Actions tab directly to confirm.
+`docker` job), then confirmed on GitHub's own runners after pushing: two
+pushes, two green runs, all three jobs passing both times —
+[run #1](https://github.com/muthukrishnanram/mlops-assignment1/actions/runs/29165882386)
+and
+[run #2](https://github.com/muthukrishnanram/mlops-assignment1/actions/runs/29166031866),
+queried directly via the GitHub API (`lint`: success, `test`: success,
+`docker`: success, on both). Nothing environment-specific broke between
+local validation and the hosted runner.
+
+![GitHub Actions runs](../screenshots/github_actions_runs.png)
+![GitHub Actions run detail — lint, test, docker all green](../screenshots/github_actions_run_detail.png)
 
 ## 9. Model Containerization
 
@@ -465,14 +469,12 @@ unit/API tests pass; the Docker image builds, runs, and passes its own
 Prometheus/Grafana stack shows a live dashboard populated by real
 generated traffic.
 
-The repository is pushed to GitHub (private) at
-https://github.com/muthukrishnanram/mlops-assignment1, which should have
-triggered `ci.yml` automatically. Every command each CI job runs was
-independently validated locally against the same commands the workflow
-file uses, so there's no reason to expect the hosted run to behave
-differently — but confirming that is a matter of checking the Actions
-tab directly, which this session has no credentials to do
-programmatically against a private repo.
+The repository is public at
+https://github.com/muthukrishnanram/mlops-assignment1. `ci.yml` has run
+twice on GitHub's own runners so far, both green across all three jobs —
+the last outstanding "should work" in this report is now a confirmed
+"did work," closing the loop between local validation and the actual
+hosted pipeline.
 
 ## Appendix: Verification Artifacts
 
