@@ -261,10 +261,16 @@ docker run -p 8000:8000 heart-disease-api
 curl -X POST http://localhost:8000/predict -H "Content-Type: application/json" -d @sample_input.json
 ```
 
-_TODO: Docker build/run/curl transcript or screenshot — pending Docker
-Engine finishing installation in this WSL2 environment (requires `sudo`,
-which this session can't supply interactively; installed directly by the
-user in their own terminal)._
+**Verified locally** (full transcript in `screenshots/docker_build_run_log.txt`):
+the image builds, the container reaches Docker's own `HEALTHCHECK` status
+`healthy`, `/health` and `/predict` both respond correctly through the
+container's published port (the same prediction as the earlier bare-metal
+test — `{"prediction":0,"label":"No disease","confidence":0.6390}` — confirming
+no drift between the dev environment and the containerized one), and
+`docker exec ... id` confirms the process runs as `appuser` (uid 1000), not
+root. Final image size: 219 MB (content) / 981 MB reported disk usage
+(shared base-image layers counted in full by `docker images` for a
+single-image view).
 
 ## 10. Production Deployment (Kubernetes / Minikube)
 
