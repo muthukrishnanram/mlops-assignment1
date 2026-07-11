@@ -335,8 +335,25 @@ docker compose up
 python scripts/generate_load.py --n 200   # populate the dashboard with real traffic
 ```
 
-_TODO: Grafana dashboard screenshot with live data — pending Docker
-Compose availability (same blocker)._
+**Verified locally** (full transcript in `screenshots/monitoring_stack_log.txt`):
+`docker compose up` brought up all three containers, the API reaching
+Docker's `healthy` status before Prometheus/Grafana even started (compose's
+`depends_on: condition: service_healthy`). Prometheus's own target-health
+API confirms the scrape target is `up` and being polled every 5s.
+`scripts/generate_load.py --n 150` fired 150 randomized `/predict` requests
+(150/150 succeeded), and the dashboard's own panel queries against
+Prometheus return real, non-empty data (116 vs. 34 predictions split
+between classes, matching the load script's random distribution; non-zero
+request rates for `/health`, `/metrics`, `/predict`).
+
+![Grafana dashboard with live traffic](../screenshots/grafana_dashboard.png)
+
+The screenshot above is a real capture of the live dashboard (via a
+headless-Chromium container, since installing a browser directly in this
+sandboxed environment would have needed `sudo`) — note the request-rate
+spike from the load-generation burst, the 34/116 prediction split, and the
+HTTP 200 status-code timeseries, all sourced from the same `/metrics`
+counters `api/main.py` increments per request.
 
 ## 12. Conclusion
 

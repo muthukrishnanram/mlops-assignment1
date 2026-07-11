@@ -1,0 +1,121 @@
+=== docker compose ps ===
+NAME                              IMAGE                      COMMAND                  SERVICE      CREATED       STATUS                 PORTS
+mlops-assignment-1-api-1          heart-disease-api:latest   "uvicorn api.main:ap…"   api          2 hours ago   Up 2 hours (healthy)   0.0.0.0:8000->8000/tcp, [::]:8000->8000/tcp
+mlops-assignment-1-grafana-1      grafana/grafana:11.3.1     "/run.sh"                grafana      2 hours ago   Up 2 hours             0.0.0.0:3000->3000/tcp, [::]:3000->3000/tcp
+mlops-assignment-1-prometheus-1   prom/prometheus:v2.55.1    "/bin/prometheus --c…"   prometheus   2 hours ago   Up 2 hours             0.0.0.0:9090->9090/tcp, [::]:9090->9090/tcp
+
+=== Prometheus target health (curl http://localhost:9090/api/v1/targets) ===
+  job=heart-disease-api scrapeUrl=http://api:8000/metrics health=up lastScrape=2026-07-11T14:31:19.117047615Z
+
+=== Grafana health ===
+{
+  "database": "ok",
+  "version": "11.3.1",
+  "commit": "64b556c137a1d9bcacd19ccb16c4cf138c78ca40"
+}
+
+=== Grafana provisioned datasource ===
+[
+    {
+        "id": 1,
+        "uid": "prometheus",
+        "orgId": 1,
+        "name": "Prometheus",
+        "type": "prometheus",
+        "typeName": "Prometheus",
+        "typeLogoUrl": "public/app/plugins/datasource/prometheus/img/prometheus_logo.svg",
+        "access": "proxy",
+        "url": "http://prometheus:9090",
+        "user": "",
+        "database": "",
+        "basicAuth": false,
+        "isDefault": true,
+        "jsonData": {},
+        "readOnly": true
+    }
+]
+
+=== Grafana provisioned dashboard ===
+[
+    {
+        "id": 1,
+        "uid": "heart-disease-api",
+        "title": "Heart Disease API \u2014 Monitoring",
+        "uri": "db/heart-disease-api-e28094-monitoring",
+        "url": "/d/heart-disease-api/heart-disease-api-e28094-monitoring",
+        "slug": "",
+        "type": "dash-db",
+        "tags": [],
+        "isStarred": false,
+        "sortMeta": 0,
+        "isDeleted": false
+    }
+]
+
+=== Load generation: scripts/generate_load.py --n 150 ===
+150/150 predictions succeeded (see conversation log)
+
+=== Dashboard panel query: predictions by class ===
+{
+    "status": "success",
+    "data": {
+        "resultType": "vector",
+        "result": [
+            {
+                "metric": {
+                    "predicted_class": "1"
+                },
+                "value": [
+                    1783780269.124,
+                    "116"
+                ]
+            },
+            {
+                "metric": {
+                    "predicted_class": "0"
+                },
+                "value": [
+                    1783780269.124,
+                    "34"
+                ]
+            }
+        ]
+    }
+}
+
+=== Dashboard panel query: request rate by path ===
+{
+    "status": "success",
+    "data": {
+        "resultType": "vector",
+        "result": [
+            {
+                "metric": {
+                    "path": "/health"
+                },
+                "value": [
+                    1783780269.164,
+                    "0.10386552876209601"
+                ]
+            },
+            {
+                "metric": {
+                    "path": "/metrics"
+                },
+                "value": [
+                    1783780269.164,
+                    "0.19042013606384267"
+                ]
+            },
+            {
+                "metric": {
+                    "path": "/predict"
+                },
+                "value": [
+                    1783780269.164,
+                    "0"
+                ]
+            }
+        ]
+    }
+}
