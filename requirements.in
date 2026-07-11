@@ -12,6 +12,10 @@ ucimlrepo
 # safe to use identically in the training venv and the serving Docker image)
 mlflow-skinny
 cloudpickle
+# skops is mlflow's default sklearn serialization format (safer than raw pickle —
+# no arbitrary code execution on load) and is required at *inference* time too,
+# not just training, to deserialize models/final_model/model.skops.
+skops
 
 # Serving API
 fastapi
