@@ -11,22 +11,24 @@ Usage:
 """
 
 import logging
+import sys
 from pathlib import Path
 
 import pandas as pd
 
-import sys
-
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from src.config import CATEGORICAL_FEATURES, FEATURE_COLUMNS, RAW_TARGET_COL, TARGET_COL  # noqa: E402
+from src.config import (  # noqa: E402
+    CATEGORICAL_FEATURES,
+    FEATURE_COLUMNS,
+    RAW_TARGET_COL,
+    TARGET_COL,
+)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
 
 RAW_DATA_PATH = Path(__file__).resolve().parents[2] / "data" / "raw" / "heart_disease.csv"
-PROCESSED_DATA_PATH = (
-    Path(__file__).resolve().parents[2] / "data" / "processed" / "heart_clean.csv"
-)
+PROCESSED_DATA_PATH = Path(__file__).resolve().parents[2] / "data" / "processed" / "heart_clean.csv"
 
 
 def load_raw(path: Path = RAW_DATA_PATH) -> pd.DataFrame:
@@ -51,8 +53,12 @@ def clean(df: pd.DataFrame) -> pd.DataFrame:
     df = df.dropna(subset=FEATURE_COLUMNS + [RAW_TARGET_COL])
     n_dropped = n_before - len(df)
     if n_dropped:
-        logger.info("Dropped %d/%d rows with missing values (%.1f%%)", n_dropped, n_before,
-                     100 * n_dropped / n_before)
+        logger.info(
+            "Dropped %d/%d rows with missing values (%.1f%%)",
+            n_dropped,
+            n_before,
+            100 * n_dropped / n_before,
+        )
 
     for col in CATEGORICAL_FEATURES:
         df[col] = df[col].astype(int)
@@ -71,8 +77,7 @@ def main() -> pd.DataFrame:
 
     PROCESSED_DATA_PATH.parent.mkdir(parents=True, exist_ok=True)
     df_clean.to_csv(PROCESSED_DATA_PATH, index=False)
-    logger.info("Saved cleaned data: %d rows x %d cols -> %s", *df_clean.shape,
-                PROCESSED_DATA_PATH)
+    logger.info("Saved cleaned data: %d rows x %d cols -> %s", *df_clean.shape, PROCESSED_DATA_PATH)
     logger.info("Class balance:\n%s", df_clean[TARGET_COL].value_counts().to_string())
     return df_clean
 

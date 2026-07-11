@@ -6,11 +6,11 @@ source if the serialized pipeline format ever becomes unreadable across
 library versions.
 """
 
-from sklearn.compose import ColumnTransformer
-from sklearn.preprocessing import OneHotEncoder, StandardScaler
-
 import sys
 from pathlib import Path
+
+from sklearn.compose import ColumnTransformer
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from src.config import CATEGORICAL_FEATURES, CONTINUOUS_FEATURES  # noqa: E402
