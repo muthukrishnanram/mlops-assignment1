@@ -15,6 +15,7 @@ matplotlib.use("Agg")
 
 import matplotlib.pyplot as plt
 from matplotlib.patches import FancyArrowPatch, FancyBboxPatch
+from matplotlib.path import Path as MplPath
 
 OUT_PATH = Path(__file__).resolve().parents[1] / "report" / "figures" / "architecture_diagram.png"
 
@@ -99,6 +100,34 @@ def arrow_v(ax, box_a, box_b, x_frac=0.5, **kwargs):
     )
 
 
+def arrow_elbow(ax, box_a, box_b, x_frac_a=0.5, x_frac_b=0.5, **kwargs):
+    """Right-angle down/across/down connector, routed through the empty row
+    gap so it never crosses boxes that sit between a's column and b's column
+    (unlike a diagonal arc, which cuts straight through them)."""
+    ax_, ay_, aw, ah = box_a
+    bx_, by_, bw, bh = box_b
+    start = (ax_ + aw * x_frac_a, ay_)
+    end = (bx_ + bw * x_frac_b, by_ + bh)
+    mid_y = (ay_ + (by_ + bh)) / 2
+    path = MplPath(
+        [start, (start[0], mid_y), (end[0], mid_y), end],
+        [MplPath.MOVETO, MplPath.LINETO, MplPath.LINETO, MplPath.LINETO],
+    )
+    ax.add_patch(
+        FancyArrowPatch(
+            path=path,
+            arrowstyle="-|>",
+            mutation_scale=16,
+            color="#555555",
+            linewidth=1.4,
+            zorder=1,
+            shrinkA=2,
+            shrinkB=2,
+            **kwargs,
+        )
+    )
+
+
 def main():
     fig, ax = plt.subplots(figsize=(15, 10))
 
@@ -126,7 +155,7 @@ def main():
     b_dockerbuild = box(ax, 2, 2, "docker build/run\n+ health-check", COLORS["ci"])
     b_image = box(ax, 3, 2, "heart-disease-api\nDocker image", COLORS["deploy"])
 
-    arrow_v(ax, b_model, b_gh, x_frac=0.85)
+    arrow_elbow(ax, b_model, b_gh, x_frac_a=0.5, x_frac_b=0.75)
     arrow_h(ax, b_gh, b_dockerbuild)
     arrow_h(ax, b_dockerbuild, b_image)
 
@@ -135,7 +164,7 @@ def main():
     b_svc = box(ax, 1, 3, "Service (LoadBalancer)\n/ Ingress", COLORS["deploy"])
     b_client = box(ax, 2, 3, "Client\ncurl / requests", COLORS["deploy"])
 
-    arrow_v(ax, b_image, b_minikube, x_frac=0.5)
+    arrow_elbow(ax, b_image, b_minikube, x_frac_a=0.5, x_frac_b=0.5)
     arrow_h(ax, b_minikube, b_svc)
     arrow_h(ax, b_svc, b_client)
 
